@@ -1,0 +1,9 @@
+venv/
+data/
+__pycache__/
+*.pyc
+.env
+bot.log
+*.log
+.bot_positions_*.json
+trades_*.csv

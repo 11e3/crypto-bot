@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3:*)",
+      "Bash(python3.10:*)",
+      "Bash(./venv/bin/pip:*)",
+      "Bash(./venv/bin/python:*)",
+      "Bash(source venv/bin/activate)",
+      "Bash(python backtest.py:*)",
+      "Bash(pkill:*)",
+      "Bash(python binance_fetcher.py:*)",
+      "Bash(python:*)",
+      "Bash(pip show:*)",
+      "Bash(pip install:*)",
+      "Bash(done)",
+      "Bash(ls:*)",
+      "Bash(xargs:*)"
+    ]
+  }
+}
