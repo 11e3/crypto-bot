@@ -1,241 +1,240 @@
-# VBO Strategy Backtest & Live Trading Bot
+# Crypto Bot
 
-Upbit cryptocurrency VBO (Volatility Breakout) strategy with backtesting, validation, and live trading bot.
+**Lightweight live trading bot for the Crypto Quant Ecosystem.**
 
-## 📊 Strategy Overview
+Part of: `crypto-quant-system` → `bt` → **`crypto-bot`** ← `crypto-regime-classifier-ml`
 
-### Strategy Logic
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Docker](https://img.shields.io/badge/Docker-slim-blue.svg)](https://hub.docker.com/)
+[![GCP](https://img.shields.io/badge/GCP-e2--micro-yellow.svg)](https://cloud.google.com/)
 
-**Buy Conditions (ALL must be true):**
-- Daily high >= Target price (Open + (Prev High - Prev Low) × 0.5)
-- Previous close > Previous MA5
-- Previous BTC close > Previous BTC MA20
+## Ecosystem Role
 
-**Sell Conditions (ANY triggers exit):**
-- Previous close < Previous MA5
-- Previous BTC close < Previous BTC MA20
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Crypto Quant Ecosystem                       │
+├─────────────────────────────────────────────────────────────────┤
+│  crypto-quant-system     │  Dashboard & data pipeline          │
+│    └── Bot log viewer    │  - Reads logs from GCS ◄────────┐   │
+├──────────────────────────┼─────────────────────────────────┤   │
+│  bt                      │  Backtesting engine             │   │
+│    └── Strategy dev      │  - Strategies validated here    │   │
+├──────────────────────────┼─────────────────────────────────┤   │
+│  crypto-bot (this repo)  │  Live trading bot               │   │
+│    ├── Auto trading      │  - Executes validated strategies│   │
+│    ├── GCS log upload    │  - Uploads logs to GCS ─────────┘   │
+│    └── ML model load     │  - Loads .pkl from GCS ◄────────┐   │
+├──────────────────────────┼─────────────────────────────────┤   │
+│  crypto-regime-ml        │  Market regime classifier       │   │
+│    └── Model export      │  - Uploads .pkl to GCS ─────────┘   │
+└──────────────────────────┴──────────────────────────────────────┘
+```
 
-**Execution Prices:**
-- Buy: Target price + 0.05% slippage
-- Sell: Daily open - 0.05% slippage
-- Fee: 0.05%
+## Strategy Performance
 
-### Validated Performance (BTC+ETH Portfolio)
+VBO (Volatility Breakout) with MA filters, validated via `bt` framework:
 
 | Period | CAGR | MDD | Sharpe |
 |--------|------|-----|--------|
 | Full (2017~) | 91.1% | -21.1% | 2.15 |
 | Test (2022-2024) | 51.9% | -15.0% | 1.92 |
-| 2025 | 12.1% | -12.4% | 0.76 |
+| 2025 OOS | 12.1% | -12.4% | 0.76 |
 
-## 🚀 Quick Start
+**Overfitting Risk: VERY LOW** ✅ (8/8 years profitable)
 
-### Installation
+## Infrastructure
+
+### Deployment Stack
+
+```
+GCP e2-micro (free tier)
+├── Docker (python:3.11-slim)
+├── Swap: 2GB configured
+├── Process: systemd managed
+└── Logs: → GCS bucket
+```
+
+### Resource Optimization
+
+| Component | Optimization |
+|-----------|--------------|
+| Base image | `python:3.11-slim` (~150MB) |
+| Dependencies | Minimal (pandas, pyupbit) |
+| Memory | 2GB swap for ML model loading |
+| Restart | systemd auto-restart on failure |
+
+## Quick Start
+
+### Local Development
 
 ```bash
 # Install dependencies
 pip install -r requirements.txt
 
-# Or install directly
-pip install pandas numpy pyupbit
-
-# Download data
-python fetcher.py
-```
-
-### Run Live Trading Bot
-
-```bash
-# 1. Setup API keys
+# Setup API keys
 cp .env.example .env
-nano .env  # Enter your API keys
+nano .env
 
-# 2. Run bot
+# Run bot
 python bot.py
-
-# Run in background
-nohup python bot.py > bot.log 2>&1 &
 ```
 
-### Run Backtests
+### Docker Deployment
 
 ```bash
-# Portfolio combination backtest
-python research/backtest_vbo_portfolio.py
+# Build optimized image
+docker build -t crypto-bot:slim .
 
-# Single coin strategy comparison
-python research/backtest_vbo_comparison.py
-
-# Overfitting validation
-python research/check_overfitting.py
-
-# Parameter sensitivity test
-python research/test_parameter_sensitivity.py
-
-# Specify custom period
-python research/backtest_vbo_portfolio.py --start 2022-01-01 --end 2024-12-31
+# Run container
+docker run -d \
+  --name crypto-bot \
+  --env-file .env \
+  --restart unless-stopped \
+  crypto-bot:slim
 ```
 
-## 🤖 Live Trading Bot
+### GCP Deployment
 
-### Key Features
+```bash
+# 1. Create e2-micro instance
+gcloud compute instances create crypto-bot \
+  --machine-type=e2-micro \
+  --zone=asia-northeast3-a
 
-- ✅ Multiple account support (unlimited)
-- ✅ Validated VBO strategy (CAGR 91%, Sharpe 2.15)
-- ✅ Real-time Telegram notifications
-- ✅ Late entry protection (only enter within ±1%)
-- ✅ Safe error handling (retry + exponential backoff)
-- ✅ 24/7 unattended operation
-- ✅ Position tracking with file persistence (restart-safe)
+# 2. Setup swap (required for ML models)
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
 
-### Bot Structure
-
-```
-bot/
-├── __init__.py    # Package exports
-├── config.py      # Configuration management
-├── market.py      # VBO signal calculation
-├── account.py     # Order execution
-├── tracker.py     # Position tracking
-├── logger.py      # Trade logging
-├── utils.py       # Telegram notifications
-└── bot.py         # Main bot logic
+# 3. Install and run via systemd
+sudo systemctl enable crypto-bot
+sudo systemctl start crypto-bot
 ```
 
-### Position Management
+## GCS Integration
 
-- Bot only manages **coins it bought itself**
-- Existing holdings are ignored (safe)
-- Restored from `.positions_{account_name}.json` on restart
-- Trade history: `trades_{account_name}.csv`
+### Log Upload
 
-### Configuration (.env)
+```python
+# Bot automatically uploads logs to GCS
+# Viewable in crypto-quant-system dashboard
+
+from google.cloud import storage
+
+def upload_log(local_path: str, gcs_path: str):
+    client = storage.Client()
+    bucket = client.bucket(GCS_BUCKET)
+    blob = bucket.blob(gcs_path)
+    blob.upload_from_filename(local_path)
+```
+
+### ML Model Loading
+
+```python
+# Load regime classifier from GCS
+from google.cloud import storage
+import pickle
+
+def load_model(model_name: str):
+    client = storage.Client()
+    bucket = client.bucket(GCS_BUCKET)
+    blob = bucket.blob(f"models/{model_name}.pkl")
+    
+    with blob.open("rb") as f:
+        return pickle.load(f)
+
+# Usage
+regime_model = load_model("regime_classifier_v1")
+current_regime = regime_model.predict(features)
+```
+
+## Configuration
+
+### Environment Variables (.env)
 
 ```env
-# Account settings (required)
+# Exchange API (required)
 ACCOUNT_1_NAME=Main
 ACCOUNT_1_ACCESS_KEY=your_access_key
 ACCOUNT_1_SECRET_KEY=your_secret_key
+
+# GCS (required for ecosystem)
+GCS_BUCKET=your-bucket-name
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
 
 # Telegram (recommended)
 TELEGRAM_BOT_TOKEN=your_bot_token
 TELEGRAM_CHAT_ID=your_chat_id
 
-# Strategy parameters (defaults recommended)
+# Strategy parameters
 SYMBOLS=BTC,ETH
 MA_SHORT=5
 BTC_MA=20
 NOISE_RATIO=0.5
 ```
 
-### Important Notes
-
-- ⚠️ Start with **small amounts for testing**
-- ⚠️ API permissions: "View assets" + "Place orders" required
-- ⚠️ Past performance does not guarantee future results
-- ⚠️ Investment decisions and P&L are your own responsibility
-
-## 📈 Research Results
-
-### Portfolio Combination Performance
-
-| Rank | Combination | CAGR | MDD | Sharpe |
-|------|-------------|------|-----|--------|
-| 🥇 | **BTC+ETH** | 91.1% | **-21.1%** | **2.15** |
-| 🥈 | BTC+ETH+XRP | 101.0% | -23.6% | 1.98 |
-| 🥉 | BTC+XRP | 101.9% | -36.6% | 1.74 |
-
-**Key Findings:**
-- **BTC+ETH combination is optimal** (Sharpe 2.15, MDD -21.1%)
-- 2-coin portfolios are most efficient (highest Sharpe, lowest MDD)
-- BTC-ETH correlation 0.73 provides proper diversification
-
-### Strategy Improvement Attempts
-
-Multiple improvements were tested, but **current strategy is already optimal**:
-
-| Attempt | Result | Notes |
-|---------|--------|-------|
-| Pure VBO (remove MA filters) | ❌ CAGR 31%, MDD -57% | Filters essential |
-| BTC filter only | ❌ MDD -41% (2x worse) | Coin MA essential |
-| Volume filter added | ❌ CAGR -32% | Too many missed opportunities |
-| ATR position sizing | △ Sharpe +0.02 | Marginal improvement |
-| Trailing Stop -3% | ❌ Overfitted (4H validation failed) | Daily timeframe illusion |
-| 4-hour timeframe | ❌ CAGR 44%, Sharpe 1.57 | Daily superior |
-
-**Conclusion:** MA5 + BTC_MA20 combination is already optimized
-
-## ✅ Validation Results
-
-### Overfitting Validation
-
-| Period | CAGR | Sharpe | Assessment |
-|--------|------|--------|------------|
-| Train (2017-2021) | 154.9% | 2.53 | Training |
-| Test (2022-2024) | 51.9% | 1.92 | ✅ Validated |
-| 2025 | 12.1% | 0.76 | ✅ OOS |
-
-- Sharpe degradation 24% (within acceptable range)
-- **8/8 years profitable** (100% win rate)
-- Parameter sensitivity < 10%
-
-### Validation Checklist
-
-| Item | Result |
-|------|--------|
-| ✅ No look-ahead bias | All indicators use shift(1) |
-| ✅ Backtest-bot logic match | Code review complete |
-| ✅ Train/Test consistency | Sharpe degradation 24% |
-| ✅ Year-by-year consistency | 8/8 years positive |
-| ✅ Parameter simplicity | Only 2 parameters |
-| ✅ 4-hour cross-validation | Daily timeframe superior |
-
-**Overfitting Risk: VERY LOW** ✅
-
-## 📁 Project Structure
+## Project Structure
 
 ```
-├── bot.py                  # Live trading bot entry point
-├── bot/                    # Bot package
-│   ├── __init__.py
-│   ├── config.py           # Configuration management
-│   ├── market.py           # VBO signal calculation
-│   ├── account.py          # Order execution
-│   ├── tracker.py          # Position tracking
-│   ├── logger.py           # Trade logging
-│   ├── utils.py            # Telegram utilities
-│   └── bot.py              # Main bot logic
-├── research/               # Backtest research
-│   ├── backtest_vbo_portfolio.py
-│   ├── backtest_vbo_comparison.py
-│   ├── check_overfitting.py
-│   └── test_parameter_sensitivity.py
-├── data/                   # OHLCV data
-│   ├── BTC.csv
-│   ├── ETH.csv
-│   └── ...
-├── fetcher.py              # Data collection
-├── liquidate.py            # Emergency liquidation
-└── legacy/                 # Previous research
+crypto-bot/
+├── bot.py              # Entry point
+├── bot/
+│   ├── config.py       # Configuration & GCS setup
+│   ├── market.py       # VBO signal calculation
+│   ├── account.py      # Order execution
+│   ├── tracker.py      # Position tracking
+│   ├── logger.py       # Trade logging → GCS
+│   ├── regime.py       # ML model integration
+│   └── utils.py        # Telegram notifications
+├── Dockerfile          # Optimized slim image
+├── docker-compose.yml
+└── systemd/
+    └── crypto-bot.service
 ```
 
-## 🔬 Backtest Settings
+## Features
 
-- **Period**: 2017-01-01 ~ Present
-- **Fee**: 0.05%
-- **Slippage**: 0.05%
-- **Initial Capital**: 1,000,000 KRW
-- **Portfolio**: Equal weight (Total equity / N)
+- ✅ Multiple account support
+- ✅ Late entry protection (±1% threshold)
+- ✅ Exponential backoff retry
+- ✅ Position persistence (restart-safe)
+- ✅ GCS log upload for dashboard
+- ✅ ML regime model integration
+- ✅ Telegram notifications
 
-## ⚠️ Disclaimer
+## Monitoring
+
+### View Logs (via crypto-quant-system)
+
+Logs uploaded to GCS are viewable in the crypto-quant-system dashboard.
+
+### Direct Log Access
+
+```bash
+# Local logs
+tail -f bot.log
+
+# GCS logs
+gsutil cat gs://your-bucket/logs/bot_2025-01-16.log
+```
+
+### Systemd Status
+
+```bash
+sudo systemctl status crypto-bot
+sudo journalctl -u crypto-bot -f
+```
+
+## Disclaimer
+
+⚠️ **Investment Risk Warning**
 
 - Past performance does not guarantee future results
-- Strategy effectiveness may decrease due to market regime changes
-- Order execution may fail during extreme volatility
-- Risk of principal loss exists
-
-**Investment decisions are your own responsibility.**
+- Start with small amounts for testing
+- API permissions: "View assets" + "Place orders" required
+- Investment decisions and P&L are your own responsibility
 
 ---
 
-**Last Updated**: 2026-01-15
+**Version**: 1.0.0 | **Ecosystem**: Crypto Quant System | **Runtime**: GCP e2-micro
