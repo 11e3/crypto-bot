@@ -1,0 +1,31 @@
+# Data & legacy
+data/
+legacy/
+
+# Backtest scripts
+backtest_*.py
+check_*.py
+test_*.py
+fetcher.py
+
+# Docs
+*.md
+CLAUDE.md
+
+# Environment & logs (mount separately)
+.env
+*.csv
+*.json
+.positions_*
+
+# Git & IDE
+.git/
+.gitignore
+.vscode/
+__pycache__/
+*.pyc
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore

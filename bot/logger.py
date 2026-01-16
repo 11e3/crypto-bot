@@ -49,7 +49,8 @@ class TradeLogger:
 
     def __init__(self, account: str):
         self.account = account
-        self.path = Path(f"trades_{account}.csv")
+        self.path = Path(f"logs/{account}/trades.csv")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         self._init_file()
 
     def _init_file(self):

@@ -6,7 +6,7 @@ from typing import Optional
 
 import pyupbit
 
-from .config import Config, get_config
+from .config import get_config
 from .logger import TradeLogger, Trade
 from .tracker import PositionTracker
 from .utils import send_telegram

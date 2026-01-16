@@ -24,7 +24,8 @@ class PositionTracker:
 
     def __init__(self, account: str):
         self.account = account
-        self._path = Path(f".positions_{account}.json")
+        self._path = Path(f"logs/{account}/positions.json")
+        self._path.parent.mkdir(parents=True, exist_ok=True)
         self._positions: dict[str, Position] = self._load()
 
     def _load(self) -> dict[str, Position]:
