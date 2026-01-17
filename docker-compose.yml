@@ -5,6 +5,8 @@ services:
     env_file: .env
     volumes:
       - ./logs:/app/logs
+      - ./bot:/app/bot:ro
+      - ./bot.py:/app/bot.py:ro
     logging:
       driver: json-file
       options:
