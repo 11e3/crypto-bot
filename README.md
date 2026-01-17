@@ -48,19 +48,19 @@ VBO (Volatility Breakout) with MA filters, validated via `bt` framework:
 
 ```
 GCP e2-micro (free tier)
-├── Docker (python:3.11-slim)
-├── Swap: 2GB configured
+├── Docker (python:3.12-slim)
+├── Volume: ./bot, ./bot.py (hot reload)
 ├── Process: systemd managed
-└── Logs: → GCS bucket
+└── Logs: → GCS bucket (gsutil cron)
 ```
 
 ### Resource Optimization
 
 | Component | Optimization |
 |-----------|--------------|
-| Base image | `python:3.11-slim` (~150MB) |
+| Base image | `python:3.12-slim` (~150MB) |
 | Dependencies | Minimal (pandas, pyupbit) |
-| Memory | 2GB swap for ML model loading |
+| Hot reload | Code mounted as volume |
 | Restart | systemd auto-restart on failure |
 
 ## Quick Start
@@ -82,71 +82,78 @@ python bot.py
 ### Docker Deployment
 
 ```bash
-# Build optimized image
-docker build -t crypto-bot:slim .
+# Build and run with docker-compose
+docker-compose up -d --build
 
-# Run container
-docker run -d \
-  --name crypto-bot \
-  --env-file .env \
-  --restart unless-stopped \
-  crypto-bot:slim
+# Hot reload (no rebuild needed for code changes)
+git pull && docker-compose restart
 ```
 
 ### GCP Deployment
 
 ```bash
-# 1. Create e2-micro instance
-gcloud compute instances create crypto-bot \
-  --machine-type=e2-micro \
-  --zone=asia-northeast3-a
+# 1. Install Docker
+sudo apt update && sudo apt install -y docker.io docker-compose
+sudo usermod -aG docker $USER
 
-# 2. Setup swap (required for ML models)
-sudo fallocate -l 2G /swapfile
-sudo chmod 600 /swapfile
-sudo mkswap /swapfile
-sudo swapon /swapfile
+# 2. Clone and setup
+cd /opt && sudo git clone https://github.com/11e3/crypto-bot.git
+cd crypto-bot && sudo cp .env.example .env
+sudo nano .env  # Add API keys
 
-# 3. Install and run via systemd
-sudo systemctl enable crypto-bot
-sudo systemctl start crypto-bot
+# 3. Create systemd service
+sudo tee /etc/systemd/system/bot.service << 'EOF'
+[Unit]
+Description=VBO Trading Bot
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/crypto-bot
+ExecStart=/usr/bin/docker-compose up
+ExecStop=/usr/bin/docker-compose down
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 4. Start bot
+sudo systemctl daemon-reload
+sudo systemctl enable bot
+sudo systemctl start bot
+
+# 5. Setup GCS log sync (optional)
+# Add to crontab: */5 * * * * gsutil -m rsync -r /opt/crypto-bot/logs gs://your-bucket/logs/
 ```
 
 ## GCS Integration
 
-### Log Upload
+### Log Sync (gsutil cron)
 
-```python
-# Bot automatically uploads logs to GCS
-# Viewable in crypto-quant-system dashboard
+```bash
+# Logs are stored locally in logs/{account_name}/ folder
+# Sync to GCS via cron for lightweight Docker image
 
-from google.cloud import storage
+# Add to crontab
+crontab -e
 
-def upload_log(local_path: str, gcs_path: str):
-    client = storage.Client()
-    bucket = client.bucket(GCS_BUCKET)
-    blob = bucket.blob(gcs_path)
-    blob.upload_from_filename(local_path)
+# Sync every 5 minutes
+*/5 * * * * gsutil -m rsync -r /opt/crypto-bot/logs gs://your-bucket/bot-logs/
 ```
 
-### ML Model Loading
+### Log Structure
 
-```python
-# Load regime classifier from GCS
-from google.cloud import storage
-import pickle
-
-def load_model(model_name: str):
-    client = storage.Client()
-    bucket = client.bucket(GCS_BUCKET)
-    blob = bucket.blob(f"models/{model_name}.pkl")
-    
-    with blob.open("rb") as f:
-        return pickle.load(f)
-
-# Usage
-regime_model = load_model("regime_classifier_v1")
-current_regime = regime_model.predict(features)
+```
+logs/
+├── Account1/
+│   ├── trades.csv      # Trade history
+│   └── positions.json  # Current positions
+└── Account2/
+    ├── trades.csv
+    └── positions.json
 ```
 
 ## Configuration
@@ -154,14 +161,14 @@ current_regime = regime_model.predict(features)
 ### Environment Variables (.env)
 
 ```env
-# Exchange API (required)
+# Exchange API (required, supports multiple accounts)
 ACCOUNT_1_NAME=Main
 ACCOUNT_1_ACCESS_KEY=your_access_key
 ACCOUNT_1_SECRET_KEY=your_secret_key
 
-# GCS (required for ecosystem)
-GCS_BUCKET=your-bucket-name
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+ACCOUNT_2_NAME=Sub
+ACCOUNT_2_ACCESS_KEY=your_access_key_2
+ACCOUNT_2_SECRET_KEY=your_secret_key_2
 
 # Telegram (recommended)
 TELEGRAM_BOT_TOKEN=your_bot_token
@@ -180,17 +187,20 @@ NOISE_RATIO=0.5
 crypto-bot/
 ├── bot.py              # Entry point
 ├── bot/
-│   ├── config.py       # Configuration & GCS setup
+│   ├── bot.py          # Main trading loop + daily report
+│   ├── config.py       # Configuration
 │   ├── market.py       # VBO signal calculation
 │   ├── account.py      # Order execution
 │   ├── tracker.py      # Position tracking
-│   ├── logger.py       # Trade logging → GCS
-│   ├── regime.py       # ML model integration
+│   ├── logger.py       # Trade logging (CSV)
 │   └── utils.py        # Telegram notifications
-├── Dockerfile          # Optimized slim image
-├── docker-compose.yml
-└── systemd/
-    └── crypto-bot.service
+├── Dockerfile          # Multi-stage slim build
+├── docker-compose.yml  # Hot reload enabled
+├── .dockerignore
+└── logs/               # Mounted volume
+    └── {account}/
+        ├── trades.csv
+        └── positions.json
 ```
 
 ## Features
@@ -199,32 +209,35 @@ crypto-bot/
 - ✅ Late entry protection (±1% threshold)
 - ✅ Exponential backoff retry
 - ✅ Position persistence (restart-safe)
-- ✅ GCS log upload for dashboard
-- ✅ ML regime model integration
-- ✅ Telegram notifications
+- ✅ Daily report at 9AM KST (Telegram)
+- ✅ Hot reload (no rebuild for code changes)
+- ✅ Telegram notifications (buy/sell/report)
 
 ## Monitoring
 
-### View Logs (via crypto-quant-system)
-
-Logs uploaded to GCS are viewable in the crypto-quant-system dashboard.
-
-### Direct Log Access
+### Docker Logs
 
 ```bash
-# Local logs
-tail -f bot.log
+# Live logs
+docker-compose logs -f
 
-# GCS logs
-gsutil cat gs://your-bucket/logs/bot_2025-01-16.log
+# Last 100 lines
+docker-compose logs --tail=100
 ```
 
 ### Systemd Status
 
 ```bash
-sudo systemctl status crypto-bot
-sudo journalctl -u crypto-bot -f
+sudo systemctl status bot
+sudo journalctl -u bot -f
 ```
+
+### Daily Report (9AM KST)
+
+Bot sends daily Telegram report including:
+- Today's target prices vs current prices
+- Account positions with P&L %
+- Account balance (KRW + total)
 
 ## Disclaimer
 
@@ -237,4 +250,4 @@ sudo journalctl -u crypto-bot -f
 
 ---
 
-**Version**: 1.0.0 | **Ecosystem**: Crypto Quant System | **Runtime**: GCP e2-micro
+**Version**: 1.1.0 | **Ecosystem**: Crypto Quant System | **Runtime**: GCP e2-micro
