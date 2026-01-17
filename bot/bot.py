@@ -5,7 +5,7 @@ import logging
 import os
 import signal
 import sys
-from datetime import datetime, time as dt_time
+from datetime import datetime, time as dt_time, timezone, timedelta
 
 from .config import Config, get_config
 from .market import DailySignals, get_price
@@ -14,6 +14,7 @@ from .utils import send_telegram
 
 log = logging.getLogger("vbo")
 DAILY_REPORT_HOUR = 9  # KST 09:00
+KST = timezone(timedelta(hours=9))
 
 
 class VBOBot:
@@ -144,7 +145,7 @@ class VBOBot:
         reported_today = False
 
         while self.running:
-            now = datetime.now()
+            now = datetime.now(KST)
             is_report_time = now.time() >= dt_time(DAILY_REPORT_HOUR) and now.time() < dt_time(DAILY_REPORT_HOUR, 1)
 
             if is_report_time and not reported_today:

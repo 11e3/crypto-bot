@@ -14,7 +14,8 @@
       "Bash(pip install:*)",
       "Bash(done)",
       "Bash(ls:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(git add:*)"
     ]
   }
 }
