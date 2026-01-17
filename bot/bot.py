@@ -5,6 +5,7 @@ import logging
 import os
 import signal
 import sys
+from datetime import datetime, time as dt_time
 
 from .config import Config, get_config
 from .market import DailySignals, get_price
@@ -12,6 +13,7 @@ from .account import Account
 from .utils import send_telegram
 
 log = logging.getLogger("vbo")
+DAILY_REPORT_HOUR = 9  # KST 09:00
 
 
 class VBOBot:
@@ -90,6 +92,69 @@ class VBOBot:
                 log.error(f"[{account.name}] Error: {e}")
                 await asyncio.sleep(5)
 
+    def _daily_report(self):
+        """Send daily status report via Telegram."""
+        cfg = get_config()
+        sigs = self.signals.all()
+
+        lines = ["📊 <b>Daily Report</b>", ""]
+
+        # Signals
+        lines.append("<b>Signals:</b>")
+        for symbol in cfg.symbols:
+            sig = sigs.get(symbol)
+            if sig:
+                price = get_price(symbol) or 0
+                lines.append(f"  {symbol}: target {sig.target_price:,.0f} / now {price:,.0f}")
+        lines.append("")
+
+        # Accounts
+        for account in self.accounts:
+            krw = account.balance("KRW")
+            total = krw
+
+            lines.append(f"<b>[{account.name}]</b>")
+
+            positions = []
+            for symbol in cfg.symbols:
+                pos = account.positions.get(symbol)
+                if pos:
+                    price = get_price(symbol) or 0
+                    qty = account.balance(symbol)
+                    value = qty * price
+                    total += value
+                    pnl = (price / pos.entry_price - 1) * 100 if pos.entry_price else 0
+                    positions.append(f"  {symbol}: {qty:.4f} ({pnl:+.2f}%)")
+
+            if positions:
+                lines.append("  Positions:")
+                lines.extend(positions)
+            else:
+                lines.append("  Positions: None")
+
+            lines.append(f"  KRW: {krw:,.0f}")
+            lines.append(f"  Total: {total:,.0f}")
+            lines.append("")
+
+        send_telegram("\n".join(lines))
+        log.info("Daily report sent")
+
+    async def _daily_report_scheduler(self):
+        """Schedule daily report at 9AM KST."""
+        reported_today = False
+
+        while self.running:
+            now = datetime.now()
+            is_report_time = now.time() >= dt_time(DAILY_REPORT_HOUR) and now.time() < dt_time(DAILY_REPORT_HOUR, 1)
+
+            if is_report_time and not reported_today:
+                self._daily_report()
+                reported_today = True
+            elif now.time() >= dt_time(DAILY_REPORT_HOUR, 1):
+                reported_today = False
+
+            await asyncio.sleep(30)
+
     async def run(self):
         """Run bot."""
         self.running = True
@@ -105,7 +170,10 @@ class VBOBot:
             f"Accounts: {len(self.accounts)}"
         )
 
-        await asyncio.gather(*[self._run_account(a) for a in self.accounts])
+        await asyncio.gather(
+            self._daily_report_scheduler(),
+            *[self._run_account(a) for a in self.accounts]
+        )
 
         log.info("Bot stopped")
         send_telegram("🛑 <b>VBO Bot Stopped</b>")
