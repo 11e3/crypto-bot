@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, time as dt_time, timedelta
+from datetime import datetime, time as dt_time, timedelta, timezone
 from typing import Optional
 
 import pyupbit
@@ -12,6 +12,7 @@ from .config import get_config, retry
 log = logging.getLogger("vbo")
 
 CANDLE_RESET_HOUR = 9  # KST 09:00
+KST = timezone(timedelta(hours=9))
 
 
 @dataclass(frozen=True)
@@ -50,8 +51,8 @@ class DailySignals:
 
     @staticmethod
     def _trading_date() -> str:
-        """Get trading date (changes at 9AM)."""
-        now = datetime.now()
+        """Get trading date (changes at 9AM KST)."""
+        now = datetime.now(KST)
         if now.time() < dt_time(CANDLE_RESET_HOUR):
             now -= timedelta(days=1)
         return now.strftime("%Y-%m-%d")
