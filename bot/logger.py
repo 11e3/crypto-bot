@@ -3,9 +3,11 @@
 import csv
 import logging
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional
+
+KST = timezone(timedelta(hours=9))
 
 log = logging.getLogger("vbo")
 
@@ -26,8 +28,8 @@ class Trade:
     @classmethod
     def buy(cls, symbol: str, price: float, qty: float, amount: float) -> "Trade":
         return cls(
-            timestamp=datetime.now().isoformat(),
-            date=datetime.now().strftime("%Y-%m-%d"),
+            timestamp=datetime.now(KST).isoformat(),
+            date=datetime.now(KST).strftime("%Y-%m-%d"),
             action="BUY", symbol=symbol, price=price, quantity=qty, amount=amount
         )
 
@@ -35,8 +37,8 @@ class Trade:
     def sell(cls, symbol: str, price: float, qty: float, amount: float,
              profit_pct: float, profit_krw: float) -> "Trade":
         return cls(
-            timestamp=datetime.now().isoformat(),
-            date=datetime.now().strftime("%Y-%m-%d"),
+            timestamp=datetime.now(KST).isoformat(),
+            date=datetime.now(KST).strftime("%Y-%m-%d"),
             action="SELL", symbol=symbol, price=price, quantity=qty, amount=amount,
             profit_pct=profit_pct, profit_krw=profit_krw
         )

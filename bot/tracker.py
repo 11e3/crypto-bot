@@ -3,9 +3,11 @@
 import json
 import logging
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional
+
+KST = timezone(timedelta(hours=9))
 
 log = logging.getLogger("vbo")
 
@@ -49,7 +51,7 @@ class PositionTracker:
         """Record new position."""
         self._positions[symbol] = Position(
             symbol=symbol, quantity=qty, entry_price=price,
-            entry_time=datetime.now().isoformat()
+            entry_time=datetime.now(KST).isoformat()
         )
         self._save()
         log.info(f"[{self.account}] Position added: {symbol}")
