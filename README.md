@@ -243,23 +243,23 @@ Bot sends daily Telegram report including:
 
 | Challenge | Solution |
 |-----------|----------|
-| UTC/KST 시간대 혼동 | 모든 `datetime.now()`에 KST timezone 명시적 적용 |
-| GCP free tier 메모리 제한 (1GB) | `python:3.12-slim` 이미지 + 최소 의존성 |
-| 코드 수정 시 Docker 재빌드 | Volume mount로 hot reload 구현 |
-| 거래소 API 일시적 장애 | Exponential backoff retry (3회, 0.5초 간격) |
-| 봇 재시작 시 포지션 유실 | `positions.json` 파일로 상태 영속화 |
-| 늦은 진입 시 손실 위험 | Late entry protection (목표가 ±1% 초과 시 진입 거부) |
+| UTC/KST timezone confusion | Explicit KST timezone on all `datetime.now()` calls |
+| GCP free tier memory limit (1GB) | `python:3.12-slim` image + minimal dependencies |
+| Docker rebuild on code changes | Volume mount for hot reload |
+| Exchange API transient failures | Exponential backoff retry (3 attempts, 0.5s interval) |
+| Position loss on bot restart | State persistence via `positions.json` |
+| Late entry loss risk | Late entry protection (reject entry if ±1% beyond target) |
 
 ## Architecture Decisions
 
 | Decision | Rationale |
 |----------|-----------|
-| pyupbit 직접 사용 | ccxt 대비 경량, 업비트 전용 최적화 |
-| asyncio 기반 | 멀티 계정 동시 처리, I/O 대기 최소화 |
-| CSV 로깅 | 단순함, pandas 호환, GCS 연동 용이 |
-| systemd + Docker | 자동 재시작, 로그 관리, 배포 일관성 |
-| 시그널 캐싱 (1일) | API 호출 최소화, 일봉 기반 전략 특성 활용 |
-| 단일 KST 상수 정의 | 시간대 관련 버그 방지, 코드 일관성 |
+| Direct pyupbit usage | Lightweight vs ccxt, Upbit-specific optimization |
+| asyncio-based | Concurrent multi-account handling, minimized I/O wait |
+| CSV logging | Simplicity, pandas compatibility, easy GCS integration |
+| systemd + Docker | Auto-restart, log management, deployment consistency |
+| Signal caching (1 day) | Minimize API calls, leverage daily candle strategy |
+| Single KST constant | Prevent timezone bugs, code consistency |
 
 ## Performance Metrics
 
@@ -270,16 +270,16 @@ Bot sends daily Telegram report including:
 | Docker Image | ~180MB |
 | Memory (idle) | ~50MB |
 | Memory (peak) | ~120MB |
-| CPU | <1% (대부분 sleep) |
+| CPU | <1% (mostly sleep) |
 | Network | ~10KB/min (API polling) |
 
 ### Trading Performance
 
 | Metric | Value |
 |--------|-------|
-| Signal 계산 | <1초 |
-| 주문 실행 | <2초 (API latency 포함) |
-| Daily Report | 9AM KST 정시 발송 |
+| Signal calculation | <1s |
+| Order execution | <2s (incl. API latency) |
+| Daily Report | 9AM KST on schedule |
 | Uptime | 99.9%+ (systemd auto-restart) |
 
 ## Disclaimer
