@@ -42,6 +42,15 @@ VBO (Volatility Breakout) with MA filters, validated via `bt` framework:
 
 **Overfitting Risk: VERY LOW** ✅ (8/8 years profitable)
 
+## Research & Validation
+
+The core logic (VBO + MA Trend Filter) achieving Sharpe 2.15 is validated in [research/backtest_vbo_portfolio.py](research/backtest_vbo_portfolio.py).
+
+See also:
+- [research/backtest_vbo_comparison.py](research/backtest_vbo_comparison.py) - Single coin analysis
+- [research/check_overfitting.py](research/check_overfitting.py) - Train/test split validation
+- [research/test_parameter_sensitivity.py](research/test_parameter_sensitivity.py) - Parameter robustness
+
 ## Infrastructure
 
 ### Deployment Stack
