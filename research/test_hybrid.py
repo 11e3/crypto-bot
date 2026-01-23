@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Test Hybrid VBO + Funding strategy."""
 
-from strategies import VBOStrategy, FundingStrategy, HybridVBOFundingStrategy
+from strategies import FundingStrategy, HybridVBOFundingStrategy, VBOStrategy
 
 
 def test_hybrid():
@@ -34,7 +34,7 @@ def test_hybrid():
         vbo_metrics, _ = vbo.backtest(symbol, start=period_start, end=period_end)
         results.append(('VBO', symbol, vbo_metrics))
 
-        print(f"\nVBO (Bull only):")
+        print("\nVBO (Bull only):")
         print(f"  CAGR: {vbo_metrics['cagr']:.2f}%")
         print(f"  MDD: {vbo_metrics['mdd']:.2f}%")
         print(f"  Sharpe: {vbo_metrics['sharpe']:.2f}")
@@ -45,7 +45,7 @@ def test_hybrid():
         funding_metrics, _ = funding.backtest(symbol, start=period_start, end=period_end)
         results.append(('Funding', symbol, funding_metrics))
 
-        print(f"\nFunding (Always on):")
+        print("\nFunding (Always on):")
         print(f"  CAGR: {funding_metrics['cagr']:.2f}%")
         print(f"  MDD: {funding_metrics['mdd']:.2f}%")
         print(f"  Sharpe: {funding_metrics['sharpe']:.2f}")
@@ -57,7 +57,7 @@ def test_hybrid():
         hybrid_metrics, equity_df = hybrid.backtest(symbol, start=period_start, end=period_end)
         results.append(('Hybrid', symbol, hybrid_metrics))
 
-        print(f"\nHybrid (VBO + Funding):")
+        print("\nHybrid (VBO + Funding):")
         print(f"  CAGR: {hybrid_metrics['cagr']:.2f}%")
         print(f"  MDD: {hybrid_metrics['mdd']:.2f}%")
         print(f"  Sharpe: {hybrid_metrics['sharpe']:.2f}")
@@ -68,7 +68,7 @@ def test_hybrid():
 
         # Compare
         print(f"\n{symbol} Comparison:")
-        print(f"  Hybrid vs VBO:")
+        print("  Hybrid vs VBO:")
         print(f"    CAGR diff: {hybrid_metrics['cagr'] - vbo_metrics['cagr']:+.2f}%p")
         print(f"    MDD diff: {hybrid_metrics['mdd'] - vbo_metrics['mdd']:+.2f}%p")
         print(f"    Sharpe diff: {hybrid_metrics['sharpe'] - vbo_metrics['sharpe']:+.2f}")
@@ -109,9 +109,9 @@ def test_hybrid():
               f"({hybrid_m['sharpe'] - vbo_m['sharpe']:+.2f})")
 
         if hybrid_m['sharpe'] > vbo_m['sharpe']:
-            print(f"  ✓ Hybrid improves risk-adjusted returns")
+            print("  ✓ Hybrid improves risk-adjusted returns")
         else:
-            print(f"  ✗ VBO has better risk-adjusted returns")
+            print("  ✗ VBO has better risk-adjusted returns")
 
     print("\n" + "="*100)
     print("RECOMMENDATION")
@@ -120,7 +120,7 @@ def test_hybrid():
     avg_hybrid_sharpe = sum(r[2]['sharpe'] for r in hybrid_results) / len(hybrid_results)
     avg_vbo_sharpe = sum(r[2]['sharpe'] for r in vbo_results) / len(vbo_results)
 
-    print(f"\nAverage Sharpe:")
+    print("\nAverage Sharpe:")
     print(f"  VBO: {avg_vbo_sharpe:.2f}")
     print(f"  Hybrid: {avg_hybrid_sharpe:.2f}")
 

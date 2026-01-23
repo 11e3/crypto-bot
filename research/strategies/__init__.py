@@ -9,10 +9,10 @@ This package provides modular, reusable strategy implementations:
 Each strategy is self-contained with clear interfaces for backtesting.
 """
 
-from .vbo import VBOStrategy
-from .funding import FundingStrategy
 from .bidirectional_vbo import BidirectionalVBOStrategy
+from .funding import FundingStrategy
 from .hybrid_vbo_funding import HybridVBOFundingStrategy
+from .vbo import VBOStrategy
 
 __all__ = [
     'VBOStrategy',

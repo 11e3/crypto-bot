@@ -2,12 +2,11 @@
 
 import logging
 import time
-from typing import Optional
 
 import pyupbit
 
 from .config import get_config
-from .logger import TradeLogger, Trade
+from .logger import Trade, TradeLogger
 from .tracker import PositionTracker
 from .utils import send_telegram
 

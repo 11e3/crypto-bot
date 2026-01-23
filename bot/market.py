@@ -2,8 +2,8 @@
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, time as dt_time, timedelta, timezone
-from typing import Optional
+from datetime import datetime, timedelta, timezone
+from datetime import time as dt_time
 
 import pyupbit
 
@@ -33,7 +33,7 @@ def _fetch_price(ticker: str) -> float:
     return float(price)
 
 
-def get_price(symbol: str) -> Optional[float]:
+def get_price(symbol: str) -> float | None:
     """Get current price."""
     try:
         return _fetch_price(f"KRW-{symbol}")
@@ -47,7 +47,7 @@ class DailySignals:
 
     def __init__(self):
         self._signals: dict[str, Signal] = {}
-        self._date: Optional[str] = None
+        self._date: str | None = None
 
     @staticmethod
     def _trading_date() -> str:
@@ -105,7 +105,7 @@ class DailySignals:
         log.info(f"Signals calculated: {list(signals.keys())}")
         return True
 
-    def get(self, symbol: str) -> Optional[Signal]:
+    def get(self, symbol: str) -> Signal | None:
         """Get signal for symbol, recalculate if needed."""
         if self._date != self._trading_date():
             self._calculate()

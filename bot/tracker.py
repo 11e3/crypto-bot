@@ -2,10 +2,9 @@
 
 import json
 import logging
-from dataclasses import dataclass, asdict
-from datetime import datetime, timezone, timedelta
+from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
 
 KST = timezone(timedelta(hours=9))
 
@@ -63,7 +62,7 @@ class PositionTracker:
             self._save()
             log.info(f"[{self.account}] Position removed: {symbol}")
 
-    def get(self, symbol: str) -> Optional[Position]:
+    def get(self, symbol: str) -> Position | None:
         """Get position or None."""
         return self._positions.get(symbol)
 

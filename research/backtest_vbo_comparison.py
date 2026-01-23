@@ -15,11 +15,9 @@ Usage:
 
 import argparse
 from pathlib import Path
-from datetime import datetime
 
 import numpy as np
 import pandas as pd
-
 
 # =============================================================================
 # Configuration
@@ -259,7 +257,7 @@ def main():
     print("=" * 80)
     print("VBO Strategy Backtest - Individual Cryptocurrencies")
     print("=" * 80)
-    print(f"\nStrategy Parameters:")
+    print("\nStrategy Parameters:")
     print(f"  - Buy: High >= Open + (Prev High - Prev Low) * {NOISE_RATIO}")
     print(f"  - Buy Condition: Prev Close > MA{MA_SHORT} AND Prev BTC Close > BTC MA{BTC_MA}")
     print(f"  - Sell: Prev Close < MA{MA_SHORT} OR Prev BTC Close < BTC MA{BTC_MA}")

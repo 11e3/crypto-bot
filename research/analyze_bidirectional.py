@@ -3,9 +3,9 @@
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent))
 
-from backtest_binance_bidirectional_vbo import backtest_bidirectional_vbo
 import pandas as pd
 
 
@@ -13,8 +13,11 @@ def analyze_trades(symbol: str, start: str = None, end: str = None):
     """Analyze long vs short performance."""
     # Run backtest
     from backtest_binance_bidirectional_vbo import (
-        load_data, filter_date_range, calculate_indicators,
-        MA_SHORT, BTC_MA, NOISE_RATIO, FEE, SLIPPAGE
+        FEE,
+        SLIPPAGE,
+        calculate_indicators,
+        filter_date_range,
+        load_data,
     )
 
     df = load_data(symbol)

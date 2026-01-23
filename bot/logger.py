@@ -2,10 +2,9 @@
 
 import csv
 import logging
-from dataclasses import dataclass, asdict
-from datetime import datetime, timezone, timedelta
+from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
 
 KST = timezone(timedelta(hours=9))
 
@@ -22,8 +21,8 @@ class Trade:
     price: float
     quantity: float
     amount: float
-    profit_pct: Optional[float] = None
-    profit_krw: Optional[float] = None
+    profit_pct: float | None = None
+    profit_krw: float | None = None
 
     @classmethod
     def buy(cls, symbol: str, price: float, qty: float, amount: float) -> "Trade":

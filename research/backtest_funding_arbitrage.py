@@ -18,7 +18,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-
 # =============================================================================
 # Configuration
 # =============================================================================
@@ -257,12 +256,12 @@ def main():
     print("=" * 100)
     print("FUNDING RATE ARBITRAGE STRATEGY (시장중립)")
     print("=" * 100)
-    print(f"\nStrategy:")
-    print(f"  - Upbit Spot LONG + Binance Futures SHORT")
-    print(f"  - Delta Neutral (price-independent)")
-    print(f"  - Funding payment every 8 hours")
+    print("\nStrategy:")
+    print("  - Upbit Spot LONG + Binance Futures SHORT")
+    print("  - Delta Neutral (price-independent)")
+    print("  - Funding payment every 8 hours")
     print(f"  - Leverage: {FUTURES_LEVERAGE}x")
-    print(f"\nFunding Rate Assumptions (per 8h):")
+    print("\nFunding Rate Assumptions (per 8h):")
     print(f"  - Bull Market: {FUNDING_RATE_BULL*100:.3f}% × 3/day = {FUNDING_RATE_BULL*3*100:.2f}%/day (~{FUNDING_RATE_BULL*3*365*100:.1f}% APR)")
     print(f"  - Bear Market: {FUNDING_RATE_BEAR*100:.3f}% × 3/day = {FUNDING_RATE_BEAR*3*100:.2f}%/day (~{FUNDING_RATE_BEAR*3*365*100:.1f}% APR)")
     print(f"  - Neutral: {FUNDING_RATE_NEUTRAL*100:.3f}% × 3/day = {FUNDING_RATE_NEUTRAL*3*100:.2f}%/day (~{FUNDING_RATE_NEUTRAL*3*365*100:.1f}% APR)")

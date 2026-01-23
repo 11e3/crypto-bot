@@ -11,13 +11,11 @@ Usage:
 
 import argparse
 import sys
-from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, Dict, List
 
 try:
-    import pandas as pd
     import numpy as np
+    import pandas as pd
 except ImportError as e:
     print(f"Error: {e}")
     print("Install: pip install pandas numpy")
@@ -70,14 +68,14 @@ class TradeAnalyzer:
         df['date'] = pd.to_datetime(df['date'])
         return df
 
-    def filter_by_date(self, start_date: Optional[str] = None, end_date: Optional[str] = None):
+    def filter_by_date(self, start_date: str | None = None, end_date: str | None = None):
         """Filter trades by date range."""
         if start_date:
             self.df = self.df[self.df['date'] >= start_date]
         if end_date:
             self.df = self.df[self.df['date'] <= end_date]
 
-    def get_summary(self) -> Dict:
+    def get_summary(self) -> dict:
         """Calculate summary statistics."""
         buys = self.df[self.df['action'] == 'BUY']
         sells = self.df[self.df['action'] == 'SELL']
@@ -123,7 +121,7 @@ class TradeAnalyzer:
             'roi': (total_profit / total_invested * 100) if total_invested > 0 else 0
         }
 
-    def calculate_cagr(self, start_date: Optional[str] = None, end_date: Optional[str] = None) -> float:
+    def calculate_cagr(self, start_date: str | None = None, end_date: str | None = None) -> float:
         """Calculate annualized return (CAGR)."""
         sells = self.df[self.df['action'] == 'SELL']
         if len(sells) == 0:
@@ -161,7 +159,7 @@ class TradeAnalyzer:
 
         return cagr
 
-    def get_trades_by_symbol(self) -> Dict[str, Dict]:
+    def get_trades_by_symbol(self) -> dict[str, dict]:
         """Get performance by symbol."""
         sells = self.df[self.df['action'] == 'SELL']
 
@@ -182,7 +180,7 @@ class TradeAnalyzer:
 
         return results
 
-    def compare_with_backtest(self) -> Dict:
+    def compare_with_backtest(self) -> dict:
         """Compare with backtest expectations."""
         summary = self.get_summary()
 
@@ -332,7 +330,7 @@ def main():
     if args.account:
         log_files = [Path(f"trades_{args.account}.csv")]
     else:
-        log_files = list(Path('.').glob('trades_*.csv'))
+        log_files = list(Path().glob('trades_*.csv'))
 
     if not log_files:
         print("No trade log files found!")

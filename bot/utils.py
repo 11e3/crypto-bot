@@ -1,8 +1,8 @@
 """Utility functions."""
 
 import logging
-import urllib.request
 import urllib.parse
+import urllib.request
 
 from .config import get_config
 

@@ -11,6 +11,7 @@ import sys
 
 try:
     import pyupbit
+
     from bot import load_env
 except ImportError as e:
     print(f"Import error: {e}")
@@ -101,7 +102,7 @@ def main():
         if total > 0:
             print(f"  → {total:,.0f} KRW\n")
         else:
-            print(f"  → nothing to sell\n")
+            print("  → nothing to sell\n")
         grand_total += total
 
     print(f"Total: {grand_total:,.0f} KRW")

@@ -12,13 +12,13 @@ Benefits:
 """
 
 import pandas as pd
-import numpy as np
+
 from .common import (
-    load_data,
-    filter_date_range,
     calculate_basic_indicators,
+    calculate_metrics,
     calculate_vbo_targets,
-    calculate_metrics
+    filter_date_range,
+    load_data,
 )
 
 

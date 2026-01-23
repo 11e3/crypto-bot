@@ -5,11 +5,12 @@ import logging
 import os
 import signal
 import sys
-from datetime import datetime, time as dt_time, timezone, timedelta
+from datetime import datetime, timedelta, timezone
+from datetime import time as dt_time
 
-from .config import Config, get_config
-from .market import DailySignals, get_price
 from .account import Account
+from .config import get_config
+from .market import DailySignals, get_price
 from .utils import send_telegram
 
 log = logging.getLogger("vbo")

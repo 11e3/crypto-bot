@@ -21,7 +21,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-
 # =============================================================================
 # Configuration
 # =============================================================================
@@ -297,7 +296,7 @@ def main():
     print("=" * 100)
     print("MEAN REVERSION STRATEGY BACKTEST (약세장 최적화)")
     print("=" * 100)
-    print(f"\nStrategy Parameters:")
+    print("\nStrategy Parameters:")
     print(f"  - Entry: RSI < {RSI_OVERSOLD} AND Price < BB Lower AND BTC > MA{BTC_MA}")
     print(f"  - Exit: RSI > {RSI_EXIT} OR Price > BB Middle OR Profit > {PROFIT_TARGET*100}%")
     if args.stop_loss:

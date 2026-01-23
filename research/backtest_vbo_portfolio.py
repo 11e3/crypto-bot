@@ -10,12 +10,11 @@ Usage:
 """
 
 import argparse
-from pathlib import Path
 from itertools import combinations
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
 
 # =============================================================================
 # Configuration
@@ -118,7 +117,7 @@ def backtest_portfolio(symbols: list[str], start: str | None = None, end: str | 
 
     # Initialize portfolio
     cash = INITIAL_CAPITAL
-    positions = {symbol: 0.0 for symbol in symbols}  # Amount of each coin held
+    positions = dict.fromkeys(symbols, 0.0)  # Amount of each coin held
     equity_curve = []
     n_strategies = len(symbols)
 
@@ -284,7 +283,7 @@ def main():
 
     # Best by Sharpe
     all_results.sort(key=lambda x: x['sharpe'], reverse=True)
-    print(f"\nTop 10 by Sharpe Ratio:")
+    print("\nTop 10 by Sharpe Ratio:")
     print("-" * 100)
     print(f"{'Combination':<25} {'N':<5} {'CAGR':<12} {'MDD':<12} {'Sharpe':<12}")
     print("-" * 100)
@@ -293,7 +292,7 @@ def main():
 
     # Best by CAGR
     all_results.sort(key=lambda x: x['cagr'], reverse=True)
-    print(f"\nTop 10 by CAGR:")
+    print("\nTop 10 by CAGR:")
     print("-" * 100)
     print(f"{'Combination':<25} {'N':<5} {'CAGR':<12} {'MDD':<12} {'Sharpe':<12}")
     print("-" * 100)
@@ -302,7 +301,7 @@ def main():
 
     # Best by MDD (least negative)
     all_results.sort(key=lambda x: x['mdd'], reverse=True)
-    print(f"\nTop 10 by MDD (lowest drawdown):")
+    print("\nTop 10 by MDD (lowest drawdown):")
     print("-" * 100)
     print(f"{'Combination':<25} {'N':<5} {'CAGR':<12} {'MDD':<12} {'Sharpe':<12}")
     print("-" * 100)

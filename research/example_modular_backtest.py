@@ -10,7 +10,8 @@ Usage:
 """
 
 import argparse
-from strategies import VBOStrategy, FundingStrategy, BidirectionalVBOStrategy
+
+from strategies import BidirectionalVBOStrategy, FundingStrategy, VBOStrategy
 
 
 def test_vbo():

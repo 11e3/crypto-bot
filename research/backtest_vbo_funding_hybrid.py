@@ -18,7 +18,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-
 # =============================================================================
 # Configuration
 # =============================================================================
@@ -335,13 +334,13 @@ def main():
     print("=" * 100)
     print("VBO + FUNDING ARBITRAGE HYBRID STRATEGY")
     print("=" * 100)
-    print(f"\nStrategy:")
+    print("\nStrategy:")
     print(f"  - Bull Market (BTC > MA{BTC_MA}): VBO (spot long)")
     print(f"  - Bear Market (BTC < MA{BTC_MA}): Funding Arbitrage (spot long + futures short)")
-    print(f"\nBenefits:")
-    print(f"  - VBO in bull: High returns from trends")
-    print(f"  - Funding in bear: Stable returns + NO liquidation risk")
-    print(f"  - All-weather strategy")
+    print("\nBenefits:")
+    print("  - VBO in bull: High returns from trends")
+    print("  - Funding in bear: Stable returns + NO liquidation risk")
+    print("  - All-weather strategy")
     if args.start or args.end:
         print(f"\nPeriod: {args.start or 'inception'} ~ {args.end or 'latest'}")
     print()

@@ -11,13 +11,14 @@ Validated Performance (2022-2024):
 """
 
 import pandas as pd
+
 from .common import (
-    load_data,
-    filter_date_range,
+    analyze_trades,
     calculate_basic_indicators,
-    calculate_vbo_targets,
     calculate_metrics,
-    analyze_trades
+    calculate_vbo_targets,
+    filter_date_range,
+    load_data,
 )
 
 
@@ -229,7 +230,7 @@ class VBOStrategy:
 
         # Initialize portfolio
         cash = self.initial_capital
-        positions = {symbol: 0.0 for symbol in symbols}
+        positions = dict.fromkeys(symbols, 0.0)
         equity_curve = []
         n_strategies = len(symbols)
 

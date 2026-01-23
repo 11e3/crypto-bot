@@ -1,12 +1,13 @@
 """Configuration management."""
 
+import logging
 import os
 import time
-import logging
+from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 from functools import lru_cache, wraps
-from typing import Callable, TypeVar
+from pathlib import Path
+from typing import TypeVar
 
 log = logging.getLogger("vbo")
 T = TypeVar('T')

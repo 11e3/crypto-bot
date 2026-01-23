@@ -9,7 +9,6 @@ Performs multiple validation tests:
 
 import subprocess
 import sys
-from datetime import datetime
 
 
 def run_backtest(script: str, start: str = None, end: str = None) -> dict:
@@ -47,7 +46,7 @@ def run_backtest(script: str, start: str = None, end: str = None) -> dict:
     # If not found in table, try single coin results
     if not results:
         for line in output.split('\n'):
-            if 'BTC' in line and not 'ETH' in line:
+            if 'BTC' in line and 'ETH' not in line:
                 parts = line.split()
                 if len(parts) >= 6:
                     try:

@@ -6,12 +6,11 @@ If performance degrades significantly with small parameter changes, it indicates
 """
 
 import argparse
-from pathlib import Path
 from itertools import product
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
 
 # =============================================================================
 # Configuration
@@ -94,7 +93,7 @@ def backtest_portfolio(symbols: list[str], ma_short: int, btc_ma: int,
         raise ValueError("No common dates")
 
     cash = INITIAL_CAPITAL
-    positions = {symbol: 0.0 for symbol in symbols}
+    positions = dict.fromkeys(symbols, 0.0)
     equity_curve = []
     n_strategies = len(symbols)
 
@@ -248,7 +247,7 @@ def main():
     if default_result:
         print("SENSITIVITY ANALYSIS:")
         print("-" * 100)
-        print(f"Default Parameters (MA5/BTC_MA20):")
+        print("Default Parameters (MA5/BTC_MA20):")
         print(f"  CAGR:   {default_result['cagr']:.2f}%")
         print(f"  Sharpe: {default_result['sharpe']:.2f}")
         print()
@@ -263,7 +262,7 @@ def main():
         sharpe_range = ((sharpe_max - sharpe_min) / default_result['sharpe'] * 100) if default_result['sharpe'] > 0 else 0
         cagr_range = ((cagr_max - cagr_min) / default_result['cagr'] * 100) if default_result['cagr'] > 0 else 0
 
-        print(f"Performance Range Across All Parameters:")
+        print("Performance Range Across All Parameters:")
         print(f"  Sharpe: {sharpe_min:.2f} - {sharpe_max:.2f} (±{sharpe_range:.1f}% from default)")
         print(f"  CAGR:   {cagr_min:.2f}% - {cagr_max:.2f}% (±{cagr_range:.1f}% from default)")
         print()
@@ -287,7 +286,7 @@ def main():
             nearby_mean = np.mean(nearby_sharpe)
             cv = (nearby_std / nearby_mean * 100) if nearby_mean > 0 else 0
 
-            print(f"Performance Stability Near Default (±2 MA_short, ±5 BTC_MA):")
+            print("Performance Stability Near Default (±2 MA_short, ±5 BTC_MA):")
             print(f"  Mean Sharpe:  {nearby_mean:.2f}")
             print(f"  Std Dev:      {nearby_std:.2f}")
             print(f"  Variation:    {cv:.1f}%")

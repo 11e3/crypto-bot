@@ -6,7 +6,7 @@ import logging
 import sys
 
 try:
-    from bot import load_env, VBOBot
+    from bot import VBOBot, load_env
 except ImportError as e:
     print(f"Import error: {e}")
     print("Run: pip install pyupbit pandas")
