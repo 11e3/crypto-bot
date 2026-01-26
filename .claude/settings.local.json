@@ -18,7 +18,16 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push)",
-      "Bash(gcloud compute ssh upbit-bot --zone asia-northeast3-a -- 'cd /opt/crypto-bot && git pull && sudo systemctl restart bot')"
+      "Bash(gcloud compute ssh upbit-bot --zone asia-northeast3-a -- 'cd /opt/crypto-bot && git pull && sudo systemctl restart bot')",
+      "Bash(pip3 list:*)",
+      "Bash(conda info:*)",
+      "Bash(/home/moons/miniconda3/envs/python310/bin/python:*)",
+      "Bash(/home/moons/miniconda3/bin/python:*)",
+      "Bash(grep:*)",
+      "Bash(/home/moons/miniconda3/bin/pip install:*)",
+      "Bash(pip3 install:*)",
+      "Bash(.venv/bin/python:*)",
+      "Bash(venv/bin/python:*)"
     ]
   }
 }

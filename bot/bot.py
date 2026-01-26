@@ -163,7 +163,7 @@ class VBOBot:
         cfg = get_config()
 
         log.info("=" * 50)
-        log.info(f"VBO Bot | {', '.join(cfg.symbols)} | MA{cfg.ma_short}/BTC{cfg.btc_ma}")
+        log.info(f"VBO Bot V1.1 | {', '.join(cfg.symbols)} | Exit EMA{cfg.ma_short} / Entry BTC{cfg.btc_ma}")
         log.info("=" * 50)
 
         send_telegram(

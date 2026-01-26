@@ -54,8 +54,8 @@ def retry(max_attempts: int = 3, delay: float = 1.0) -> Callable:
 class Config:
     """Immutable bot configuration."""
     symbols: tuple[str, ...]
-    ma_short: int
-    btc_ma: int
+    ma_short: int  # Used for exit condition only
+    btc_ma: int    # Used for entry condition
     noise_ratio: float
     telegram_token: str
     telegram_chat_id: str

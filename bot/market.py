@@ -58,11 +58,11 @@ class DailySignals:
         return now.strftime("%Y-%m-%d")
 
     def _calculate(self) -> bool:
-        """Fetch and calculate all signals."""
+        """Fetch and calculate all signals (V1.1 strategy)."""
         cfg = get_config()
         bars = max(cfg.ma_short, cfg.btc_ma) + 5
 
-        # BTC data (market filter)
+        # BTC data (market filter for entry)
         try:
             btc = pyupbit.get_ohlcv("KRW-BTC", interval="day", count=bars)
             if btc is None or len(btc) < cfg.btc_ma + 1:
@@ -82,17 +82,19 @@ class DailySignals:
                 if df is None or len(df) < cfg.ma_short + 1:
                     continue
 
-                ma = df['close'].rolling(cfg.ma_short).mean()
-                prev_close, prev_ma = df['close'].iloc[-2], ma.iloc[-2]
+                ema_short = df['close'].ewm(span=cfg.ma_short, adjust=False).mean()
+                prev_close = df['close'].iloc[-2]
+                prev_ema_short = ema_short.iloc[-2]
                 today_open = df['open'].iloc[-1]
                 prev_range = df['high'].iloc[-2] - df['low'].iloc[-2]
 
-                coin_bull = prev_close > prev_ma
+                # V1.1: Entry = VBO + BTC, Exit = EMA5
+                coin_ema5_bull = prev_close > prev_ema_short
                 signals[symbol] = Signal(
                     symbol=symbol,
                     target_price=today_open + prev_range * cfg.noise_ratio,
-                    can_buy=coin_bull and btc_bull,
-                    should_sell=not coin_bull or not btc_bull,
+                    can_buy=btc_bull,  # V1.1: only BTC filter for entry
+                    should_sell=not coin_ema5_bull,  # V1.1: EMA5 for exit
                 )
             except Exception as e:
                 log.error(f"Signal calc failed for {symbol}: {e}")
