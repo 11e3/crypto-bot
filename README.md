@@ -101,11 +101,11 @@ sudo systemctl start bot
 
 ```env
 # Exchange API (supports multiple accounts)
-ACCOUNT_1_NAME=sh
+ACCOUNT_1_NAME=account1
 ACCOUNT_1_ACCESS_KEY=your_access_key
 ACCOUNT_1_SECRET_KEY=your_secret_key
 
-ACCOUNT_2_NAME=jh
+ACCOUNT_2_NAME=account2
 ACCOUNT_2_ACCESS_KEY=your_access_key_2
 ACCOUNT_2_SECRET_KEY=your_secret_key_2
 
@@ -137,11 +137,11 @@ Trade logs are synced to GCS via `gsutil` cron (no GCS SDK in the bot).
 
 ```
 logs/
-├── sh/
+├── {account1}/
 │   ├── trades_2025-01-16.csv   # Date-specific trade log
 │   ├── trades_2025-01-17.csv
 │   └── positions.json          # Current positions (restart-safe)
-└── jh/
+└── {account2}/
     ├── trades_2025-01-16.csv
     └── positions.json
 ```
