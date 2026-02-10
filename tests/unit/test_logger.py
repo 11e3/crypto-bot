@@ -86,23 +86,12 @@ class TestTradeLogger:
         with patch.object(TradeLogger, "__init__", lambda self, account: None):
             logger = TradeLogger.__new__(TradeLogger)
             logger.account = "test_account"
-            logger.path = temp_dir / "logs" / "test_account" / "trades.csv"
-            logger.path.parent.mkdir(parents=True, exist_ok=True)
-            logger._init_file()
+            logger.log_dir = temp_dir / "logs" / "test_account"
+            logger.log_dir.mkdir(parents=True, exist_ok=True)
             return logger
 
-    def test_init_creates_csv_with_header(self, logger: TradeLogger) -> None:
-        """Should create CSV file with headers."""
-        assert logger.path.exists()
-
-        with open(logger.path) as f:
-            reader = csv.reader(f)
-            header = next(reader)
-
-        assert header == TradeLogger.FIELDS
-
-    def test_log_appends_trade(self, logger: TradeLogger) -> None:
-        """Should append trade to CSV."""
+    def test_log_creates_date_csv_with_header(self, logger: TradeLogger) -> None:
+        """Should create date-specific CSV file with headers on first log."""
         trade = Trade(
             timestamp="2024-01-15T10:00:00+09:00",
             date="2024-01-15",
@@ -115,7 +104,31 @@ class TestTradeLogger:
 
         logger.log(trade)
 
-        with open(logger.path) as f:
+        path = logger.log_dir / "trades_2024-01-15.csv"
+        assert path.exists()
+
+        with open(path) as f:
+            reader = csv.reader(f)
+            header = next(reader)
+
+        assert header == TradeLogger.FIELDS
+
+    def test_log_appends_trade(self, logger: TradeLogger) -> None:
+        """Should append trade to date-specific CSV."""
+        trade = Trade(
+            timestamp="2024-01-15T10:00:00+09:00",
+            date="2024-01-15",
+            action="BUY",
+            symbol="BTC",
+            price=50000.0,
+            quantity=0.5,
+            amount=25000.0,
+        )
+
+        logger.log(trade)
+
+        path = logger.log_dir / "trades_2024-01-15.csv"
+        with open(path) as f:
             reader = csv.DictReader(f)
             rows = list(reader)
 
@@ -124,8 +137,8 @@ class TestTradeLogger:
         assert rows[0]["symbol"] == "BTC"
         assert float(rows[0]["price"]) == 50000.0
 
-    def test_log_multiple_trades(self, logger: TradeLogger) -> None:
-        """Should append multiple trades."""
+    def test_log_multiple_trades_same_date(self, logger: TradeLogger) -> None:
+        """Should append multiple trades to same date file."""
         trade1 = Trade(
             timestamp="2024-01-15T10:00:00+09:00",
             date="2024-01-15",
@@ -150,7 +163,8 @@ class TestTradeLogger:
         logger.log(trade1)
         logger.log(trade2)
 
-        with open(logger.path) as f:
+        path = logger.log_dir / "trades_2024-01-15.csv"
+        with open(path) as f:
             reader = csv.DictReader(f)
             rows = list(reader)
 
@@ -159,14 +173,38 @@ class TestTradeLogger:
         assert rows[1]["action"] == "SELL"
         assert float(rows[1]["profit_pct"]) == 10.0
 
-    def test_init_does_not_overwrite_existing(self, temp_dir: Path) -> None:
-        """Should not overwrite existing CSV file."""
-        # Create existing file with data
-        log_dir = temp_dir / "logs" / "test_account"
-        log_dir.mkdir(parents=True)
-        log_file = log_dir / "trades.csv"
+    def test_log_different_dates_creates_separate_files(self, logger: TradeLogger) -> None:
+        """Should create separate CSV files for different dates."""
+        trade1 = Trade(
+            timestamp="2024-01-15T10:00:00+09:00",
+            date="2024-01-15",
+            action="BUY",
+            symbol="BTC",
+            price=50000.0,
+            quantity=0.5,
+            amount=25000.0,
+        )
+        trade2 = Trade(
+            timestamp="2024-01-16T10:00:00+09:00",
+            date="2024-01-16",
+            action="BUY",
+            symbol="ETH",
+            price=3000.0,
+            quantity=1.0,
+            amount=3000.0,
+        )
 
-        with open(log_file, "w", newline="") as f:
+        logger.log(trade1)
+        logger.log(trade2)
+
+        assert (logger.log_dir / "trades_2024-01-15.csv").exists()
+        assert (logger.log_dir / "trades_2024-01-16.csv").exists()
+
+    def test_does_not_overwrite_existing(self, logger: TradeLogger) -> None:
+        """Should not overwrite existing date CSV file."""
+        path = logger.log_dir / "trades_2024-01-14.csv"
+
+        with open(path, "w", newline="") as f:
             writer = csv.DictWriter(f, TradeLogger.FIELDS)
             writer.writeheader()
             writer.writerow({
@@ -181,17 +219,25 @@ class TestTradeLogger:
                 "profit_krw": "",
             })
 
-        # Create new logger
-        with patch.object(TradeLogger, "__init__", lambda self, account: None):
-            logger = TradeLogger.__new__(TradeLogger)
-            logger.account = "test_account"
-            logger.path = log_file
-            logger._init_file()
+        # Log another trade on same date
+        trade = Trade(
+            timestamp="2024-01-14T15:00:00+09:00",
+            date="2024-01-14",
+            action="SELL",
+            symbol="ETH",
+            price=3200.0,
+            quantity=1.0,
+            amount=3200.0,
+            profit_pct=6.67,
+            profit_krw=200.0,
+        )
+        logger.log(trade)
 
-        # Existing data should still be there
-        with open(log_file) as f:
+        with open(path) as f:
             reader = csv.DictReader(f)
             rows = list(reader)
 
-        assert len(rows) == 1
+        assert len(rows) == 2
         assert rows[0]["symbol"] == "ETH"
+        assert rows[0]["action"] == "BUY"
+        assert rows[1]["action"] == "SELL"

@@ -86,12 +86,9 @@ class TestTradingFlow:
 
             # 3. Log trade
             with patch("bot.logger.Path") as mock_log_path:
-                trades_file = temp_logs_dir / "trades.csv"
-
                 logger = TradeLogger.__new__(TradeLogger)
                 logger.account = "test_account"
-                logger.path = trades_file
-                logger._init_file()
+                logger.log_dir = temp_logs_dir
 
                 trade = Trade.buy(
                     symbol="BTC",
@@ -101,6 +98,7 @@ class TestTradingFlow:
                 )
                 logger.log(trade)
 
+                trades_file = temp_logs_dir / f"trades_{trade.date}.csv"
                 assert trades_file.exists()
 
     def test_full_sell_flow(
@@ -143,11 +141,9 @@ class TestTradingFlow:
         assert not tracker.has("BTC")
 
         # 4. Log trade
-        trades_file = temp_logs_dir / "trades.csv"
         logger = TradeLogger.__new__(TradeLogger)
         logger.account = "test_account"
-        logger.path = trades_file
-        logger._init_file()
+        logger.log_dir = temp_logs_dir
 
         trade = Trade.sell(
             symbol="BTC",
@@ -159,6 +155,7 @@ class TestTradingFlow:
         )
         logger.log(trade)
 
+        trades_file = temp_logs_dir / f"trades_{trade.date}.csv"
         assert trades_file.exists()
 
     def test_position_persistence_across_restarts(

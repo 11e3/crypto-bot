@@ -50,17 +50,23 @@ class TradeLogger:
 
     def __init__(self, account: str):
         self.account = account
-        self.path = Path(f"logs/{account}/trades.csv")
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._init_file()
+        self.log_dir = Path(f"logs/{account}")
+        self.log_dir.mkdir(parents=True, exist_ok=True)
 
-    def _init_file(self):
-        if not self.path.exists():
-            with open(self.path, 'w', newline='') as f:
+    def _get_path(self, date: str) -> Path:
+        """Get CSV path for a specific date."""
+        return self.log_dir / f"trades_{date}.csv"
+
+    def _ensure_file(self, path: Path):
+        """Create CSV with header if it doesn't exist."""
+        if not path.exists():
+            with open(path, 'w', newline='') as f:
                 csv.DictWriter(f, self.FIELDS).writeheader()
 
     def log(self, trade: Trade):
-        """Append trade to CSV."""
-        with open(self.path, 'a', newline='') as f:
+        """Append trade to date-specific CSV."""
+        path = self._get_path(trade.date)
+        self._ensure_file(path)
+        with open(path, 'a', newline='') as f:
             csv.DictWriter(f, self.FIELDS).writerow(asdict(trade))
         log.info(f"[{self.account}] {trade.action} {trade.symbol} logged")
