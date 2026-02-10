@@ -1,114 +1,71 @@
 # Crypto Bot
 
-**Lightweight live trading bot for the Crypto Quant Ecosystem.**
+**Lightweight live trading bot for KRW crypto pairs on Upbit.**
 
-Part of: [crypto-quant-system](https://github.com/11e3/crypto-quant-system) → [bt](https://github.com/11e3/bt) → **[crypto-bot](https://github.com/11e3/crypto-bot)** → [crypto-regime-classifier-ml](https://github.com/11e3/crypto-regime-classifier-ml)
+Part of: [crypto-quant-system](https://github.com/11e3/crypto-quant-system) / **[crypto-bot](https://github.com/11e3/crypto-bot)** / [crypto-regime-classifier-ml](https://github.com/11e3/crypto-regime-classifier-ml)
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/badge/Docker-slim-blue.svg)](https://hub.docker.com/)
 [![GCP](https://img.shields.io/badge/GCP-e2--micro-yellow.svg)](https://cloud.google.com/)
 
-## Ecosystem Role
+## Ecosystem
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Crypto Quant Ecosystem                       │
-├─────────────────────────────────────────────────────────────────┤
-│  crypto-quant-system     │  Dashboard & data pipeline          │
-│    └── Bot log viewer    │  - Reads logs from GCS ◄────────┐   │
-├──────────────────────────┼─────────────────────────────────┤   │
-│  bt                      │  Backtesting engine             │   │
-│    └── Strategy dev      │  - Strategies validated here    │   │
-├──────────────────────────┼─────────────────────────────────┤   │
-│  crypto-bot (this repo)  │  Live trading bot               │   │
-│    ├── Auto trading      │  - Executes validated strategies│   │
-│    ├── GCS log upload    │  - Uploads logs to GCS ─────────┘   │
-│    └── ML model load     │  - Loads .pkl from GCS ◄────────┐   │
-├──────────────────────────┼─────────────────────────────────┤   │
-│  crypto-regime-ml        │  Market regime classifier       │   │
-│    └── Model export      │  - Uploads .pkl to GCS ─────────┘   │
-└──────────────────────────┴──────────────────────────────────────┘
+crypto-quant-system          Dashboard & backtester
+  └── Bot Monitor            Reads trade logs from GCS ◄──────┐
+                                                               │
+crypto-bot (this repo)       Live trading bot                  │
+  ├── Auto trading           Executes VBO strategy             │
+  └── GCS log sync           Uploads logs via gsutil ──────────┘
+
+crypto-regime-classifier-ml  Market regime classifier
+  └── Model export           Uploads .pkl to GCS
 ```
 
-## Strategy Performance
+## Strategy
 
-VBO (Volatility Breakout) with MA filters, validated via `bt` framework:
+**VBO V1.1** (Volatility Breakout with MA filters)
 
-| Period | CAGR | MDD | Sharpe |
-|--------|------|-----|--------|
-| Full (2017~) | 91.1% | -21.1% | 2.15 |
-| Test (2022-2024) | 51.9% | -15.0% | 1.92 |
-| 2025 OOS | 12.1% | -12.4% | 0.76 |
+| Component | Rule |
+|-----------|------|
+| Entry signal | `open + prev_range * K` breakout (`K=0.5`) |
+| Entry filter | BTC `close > MA20` (market regime) |
+| Exit signal | Coin `prev_close < prev_EMA5` |
+| Allocation | `equity / N` per symbol |
+| Late entry | Reject if price deviates > ±1% from target |
 
-**Overfitting Risk: VERY LOW** ✅ (8/8 years profitable)
-
-## Research & Validation
-
-The core logic (VBO + MA Trend Filter) achieving Sharpe 2.15 is validated in [research/backtest_vbo_portfolio.py](research/backtest_vbo_portfolio.py).
-
-See also:
-- [research/backtest_vbo_comparison.py](research/backtest_vbo_comparison.py) - Single coin analysis
-- [research/check_overfitting.py](research/check_overfitting.py) - Train/test split validation
-- [research/test_parameter_sensitivity.py](research/test_parameter_sensitivity.py) - Parameter robustness
-
-## Infrastructure
-
-### Deployment Stack
-
-```
-GCP e2-micro (free tier)
-├── Docker (python:3.12-slim)
-├── Volume: ./bot, ./bot.py (hot reload)
-├── Process: systemd managed
-└── Logs: → GCS bucket (gsutil cron)
-```
-
-### Resource Optimization
-
-| Component | Optimization |
-|-----------|--------------|
-| Base image | `python:3.12-slim` (~150MB) |
-| Dependencies | Minimal (pandas, pyupbit) |
-| Hot reload | Code mounted as volume |
-| Restart | systemd auto-restart on failure |
+Strategy logic is in `bot/market.py` (121 lines). Research and backtesting iterations are in `research/`.
 
 ## Quick Start
 
-### Local Development
+### Local
 
 ```bash
-# Install dependencies
 pip install -r requirements.txt
-
-# Setup API keys
-cp .env.example .env
-nano .env
-
-# Run bot
+cp .env.example .env   # add API keys
 python bot.py
 ```
 
-### Docker Deployment
+### Docker
 
 ```bash
-# Build and run with docker-compose
 docker-compose up -d --build
 
-# Hot reload (no rebuild needed for code changes)
+# Hot reload (no rebuild needed)
 git pull && docker-compose restart
 ```
 
-### GCP Deployment
+### GCP e2-micro
 
 ```bash
 # 1. Install Docker
 sudo apt update && sudo apt install -y docker.io docker-compose
 sudo usermod -aG docker $USER
 
-# 2. Clone and setup
+# 2. Clone and configure
 cd /opt && sudo git clone https://github.com/11e3/crypto-bot.git
 cd crypto-bot && sudo cp .env.example .env
-sudo nano .env  # Add API keys
+sudo nano .env  # add API keys
 
 # 3. Create systemd service
 sudo tee /etc/systemd/system/bot.service << 'EOF'
@@ -129,40 +86,13 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 
-# 4. Start bot
+# 4. Start
 sudo systemctl daemon-reload
 sudo systemctl enable bot
 sudo systemctl start bot
 
-# 5. Setup GCS log sync (optional)
-# Add to crontab: */5 * * * * gsutil -m rsync -r /opt/crypto-bot/logs gs://your-bucket/logs/
-```
-
-## GCS Integration
-
-### Log Sync (gsutil cron)
-
-```bash
-# Logs are stored locally in logs/{account_name}/ folder
-# Sync to GCS via cron for lightweight Docker image
-
-# Add to crontab
-crontab -e
-
-# Sync every 5 minutes
-*/5 * * * * gsutil -m rsync -r /opt/crypto-bot/logs gs://your-bucket/bot-logs/
-```
-
-### Log Structure
-
-```
-logs/
-├── Account1/
-│   ├── trades.csv      # Trade history
-│   └── positions.json  # Current positions
-└── Account2/
-    ├── trades.csv
-    └── positions.json
+# 5. GCS log sync (crontab -e)
+*/5 * * * * gsutil -m rsync -r /opt/crypto-bot/logs gs://bot-log/logs/
 ```
 
 ## Configuration
@@ -170,16 +100,16 @@ logs/
 ### Environment Variables (.env)
 
 ```env
-# Exchange API (required, supports multiple accounts)
-ACCOUNT_1_NAME=Main
+# Exchange API (supports multiple accounts)
+ACCOUNT_1_NAME=sh
 ACCOUNT_1_ACCESS_KEY=your_access_key
 ACCOUNT_1_SECRET_KEY=your_secret_key
 
-ACCOUNT_2_NAME=Sub
+ACCOUNT_2_NAME=jh
 ACCOUNT_2_ACCESS_KEY=your_access_key_2
 ACCOUNT_2_SECRET_KEY=your_secret_key_2
 
-# Telegram (recommended)
+# Telegram notifications (recommended)
 TELEGRAM_BOT_TOKEN=your_bot_token
 TELEGRAM_CHAT_ID=your_chat_id
 
@@ -190,116 +120,91 @@ BTC_MA=20
 NOISE_RATIO=0.5
 ```
 
+### Trading Constants (config.py)
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `FEE` | 0.05% | Upbit trading fee |
+| `MIN_ORDER_KRW` | 5,000 | Minimum order size |
+| `LATE_ENTRY_PCT` | 1.0% | Max deviation from target |
+| `CHECK_INTERVAL_SEC` | 1 | Main loop interval |
+
+## GCS Integration
+
+Trade logs are synced to GCS via `gsutil` cron (no GCS SDK in the bot).
+
+### Log Structure
+
+```
+logs/
+├── sh/
+│   ├── trades_2025-01-16.csv   # Date-specific trade log
+│   ├── trades_2025-01-17.csv
+│   └── positions.json          # Current positions (restart-safe)
+└── jh/
+    ├── trades_2025-01-16.csv
+    └── positions.json
+```
+
+### Trade CSV Fields
+
+`timestamp, date, action, symbol, price, quantity, amount, profit_pct, profit_krw`
+
+CQS Bot Monitor reads these files from `gs://bot-log/logs/{account}/` to display positions, trade history, and return charts.
+
 ## Project Structure
 
 ```
 crypto-bot/
-├── bot.py              # Entry point
+├── bot.py                  # Entry point (asyncio)
 ├── bot/
-│   ├── bot.py          # Main trading loop + daily report
-│   ├── config.py       # Configuration
-│   ├── market.py       # VBO signal calculation
-│   ├── account.py      # Order execution
-│   ├── tracker.py      # Position tracking
-│   ├── logger.py       # Trade logging (CSV)
-│   └── utils.py        # Telegram notifications
-├── Dockerfile          # Multi-stage slim build
-├── docker-compose.yml  # Hot reload enabled
-├── .dockerignore
-└── logs/               # Mounted volume
-    └── {account}/
-        ├── trades.csv
-        └── positions.json
+│   ├── bot.py              # VBOBot: multi-account trading loop + daily report
+│   ├── config.py           # Config dataclass, retry decorator, .env loader
+│   ├── market.py           # DailySignals: VBO signal calculation
+│   ├── account.py          # Account: order execution (buy/sell)
+│   ├── tracker.py          # PositionTracker: positions.json persistence
+│   ├── logger.py           # TradeLogger: date-specific CSV logging
+│   └── utils.py            # Telegram notifications
+├── tests/                  # 54 tests (unit + integration)
+├── research/               # Strategy research & backtesting
+│   ├── v0/                 # Early iterations
+│   └── v1/                 # Current strategy validation
+├── Dockerfile              # Multi-stage python:3.12-slim
+├── docker-compose.yml      # Hot reload via volume mount
+└── requirements.txt        # pyupbit, pandas
 ```
+
+**Core**: 722 lines across 7 modules.
 
 ## Features
 
-- ✅ Multiple account support
-- ✅ Late entry protection (±1% threshold)
-- ✅ Exponential backoff retry
-- ✅ Position persistence (restart-safe)
-- ✅ Daily report at 9AM KST (Telegram)
-- ✅ Hot reload (no rebuild for code changes)
-- ✅ Telegram notifications (buy/sell/report)
+- Multi-account concurrent trading (asyncio)
+- Late entry protection (±1% threshold)
+- Exponential backoff retry on API failures
+- Position persistence via `positions.json` (restart-safe)
+- Daily report at 9AM KST (Telegram)
+- Hot reload (code mounted as Docker volume, no rebuild needed)
+- Telegram notifications (buy/sell/errors/daily report)
+- Signal caching (recalculates once per trading day at 9AM KST)
 
 ## Monitoring
 
-### Docker Logs
-
 ```bash
-# Live logs
+# Docker logs
 docker-compose logs -f
-
-# Last 100 lines
 docker-compose logs --tail=100
-```
 
-### Systemd Status
-
-```bash
+# Systemd
 sudo systemctl status bot
 sudo journalctl -u bot -f
 ```
 
-### Daily Report (9AM KST)
+### Daily Report (9AM KST via Telegram)
 
-Bot sends daily Telegram report including:
-- Today's target prices vs current prices
-- Account positions with P&L %
-- Account balance (KRW + total)
-
-## Challenges & Solutions
-
-| Challenge | Solution |
-|-----------|----------|
-| UTC/KST timezone confusion | Explicit KST timezone on all `datetime.now()` calls |
-| GCP free tier memory limit (1GB) | `python:3.12-slim` image + minimal dependencies |
-| Docker rebuild on code changes | Volume mount for hot reload |
-| Exchange API transient failures | Exponential backoff retry (3 attempts, 0.5s interval) |
-| Position loss on bot restart | State persistence via `positions.json` |
-| Late entry loss risk | Late entry protection (reject entry if ±1% beyond target) |
-
-## Architecture Decisions
-
-| Decision | Rationale |
-|----------|-----------|
-| Direct pyupbit usage | Lightweight vs ccxt, Upbit-specific optimization |
-| asyncio-based | Concurrent multi-account handling, minimized I/O wait |
-| CSV logging | Simplicity, pandas compatibility, easy GCS integration |
-| systemd + Docker | Auto-restart, log management, deployment consistency |
-| Signal caching (1 day) | Minimize API calls, leverage daily candle strategy |
-| Single KST constant | Prevent timezone bugs, code consistency |
-
-## Performance Metrics
-
-### Resource Usage (GCP e2-micro)
-
-| Metric | Value |
-|--------|-------|
-| Docker Image | ~180MB |
-| Memory (idle) | ~50MB |
-| Memory (peak) | ~120MB |
-| CPU | <1% (mostly sleep) |
-| Network | ~10KB/min (API polling) |
-
-### Trading Performance
-
-| Metric | Value |
-|--------|-------|
-| Signal calculation | <1s |
-| Order execution | <2s (incl. API latency) |
-| Daily Report | 9AM KST on schedule |
-| Uptime | 99.9%+ (systemd auto-restart) |
+- Target prices vs current prices per symbol
+- Account positions with unrealized P&L %
+- KRW balance and total equity
 
 ## Disclaimer
 
-⚠️ **Investment Risk Warning**
-
-- Past performance does not guarantee future results
-- Start with small amounts for testing
-- API permissions: "View assets" + "Place orders" required
-- Investment decisions and P&L are your own responsibility
-
----
-
-**Version**: 1.1.0 | **Ecosystem**: Crypto Quant System | **Runtime**: GCP e2-micro
+**Investment Risk Warning**: Past performance does not guarantee future results. Start with small amounts for testing. API permissions required: "View assets" + "Place orders". All investment decisions and P&L are your own responsibility.
