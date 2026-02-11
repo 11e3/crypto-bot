@@ -2,7 +2,7 @@
 
 **Lightweight live trading bot for KRW crypto pairs on Upbit.**
 
-Part of: [crypto-lab](https://github.com/11e3/crypto-lab) / **[crypto-bot](https://github.com/11e3/crypto-bot)** / [crypto-regime-classifier-ml](https://github.com/11e3/crypto-regime-classifier-ml)
+Part of: [crypto-lab](https://github.com/11e3/crypto-lab) / **[crypto-bot](https://github.com/11e3/crypto-bot)** / [crypto-ml](https://github.com/11e3/crypto-ml)
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/badge/Docker-slim-blue.svg)](https://hub.docker.com/)
@@ -18,7 +18,7 @@ crypto-bot (this repo)       Live trading bot                  │
   ├── Auto trading           Executes VBO strategy             │
   └── GCS log sync           Uploads logs via gsutil ──────────┘
 
-crypto-regime-classifier-ml  Market regime classifier
+crypto-ml  Market regime classifier
   └── Model export           Uploads .pkl to GCS
 ```
 
