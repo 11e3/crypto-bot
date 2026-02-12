@@ -61,14 +61,14 @@ Upbit KRW 페어 실매매 트레이딩 봇. VBO(Volatility Breakout) 전략, �
 
 | Repo | 역할 | LOC | 상태 |
 |------|------|-----|------|
-| **crypto-bot** | Upbit 실매매 봇 (VBO) | ~720 | Active (독립 배포) |
+| **crypto-bot** | Upbit 실매매 봇 (VBO) | ~850 | Active (독립 배포) |
 | **[crypto-lab](https://github.com/11e3/crypto-lab)** | 백테스트, 대시보드, 데이터 파이프라인 | ~7,500 | Active |
 
 ---
 
 ## Strategy: VBO V1.1
 
-Volatility Breakout + MA 필터. 로직 전체가 `bot/market.py` (121줄).
+Volatility Breakout + MA 필터. 로직 전체가 `bot/market.py` (125줄).
 
 | Component | Rule |
 |-----------|------|
@@ -97,7 +97,7 @@ Volatility Breakout + MA 필터. 로직 전체가 `bot/market.py` (121줄).
 ### Local
 
 ```bash
-pip install -r requirements.txt
+pip install .
 cp .env.example .env   # API 키 입력
 python bot.py
 ```
@@ -176,6 +176,9 @@ SYMBOLS=BTC,ETH
 MA_SHORT=5
 BTC_MA=20
 NOISE_RATIO=0.5
+
+# 로깅 (선택)
+# LOG_FORMAT=json   # "json" 또는 "text" (기본: text)
 ```
 
 ### Trading Constants (config.py)
@@ -186,29 +189,34 @@ NOISE_RATIO=0.5
 | `MIN_ORDER_KRW` | 5,000 | 최소 주문 금액 |
 | `LATE_ENTRY_PCT` | 1.0% | 목표가 대비 최대 이탈률 |
 | `CHECK_INTERVAL_SEC` | 1 | 메인 루프 간격 |
+| `ORDER_DELAY_SEC` | 0.2 | 연속 주문 사이 대기 |
 
 ---
 
 ## Architecture
 
 ```
-bot.py (entry point)
+bot.py (entry point, LOG_FORMAT 전환)
 └── VBOBot (bot/bot.py)
     ├── DailySignals (bot/market.py)     # VBO 신호 계산, 9AM KST 캐싱
     ├── Account (bot/account.py)         # 시장가 주문 실행
     ├── PositionTracker (bot/tracker.py) # positions.json 영속성
     ├── TradeLogger (bot/logger.py)      # 날짜별 CSV 로깅
-    └── Telegram (bot/utils.py)          # HTML 포맷 알림
+    ├── Telegram (bot/utils.py)          # HTML 포맷 알림 + 에러 스로틀
+    └── Config (bot/config.py)           # RateLimiter, retry, JsonFormatter
 ```
 
-**Core**: 722줄, 7개 모듈.
+**Core**: 849줄, 7개 모듈.
 
 ### Resilience
 
 - **Position 영속성**: `positions.json`으로 재시작 시 포지션 복구
 - **Signal 캐싱**: 9AM KST에 1회 계산, 루프마다 재계산하지 않음
 - **Retry**: API 실패 시 exponential backoff (1s → 2s → 4s)
+- **Rate Limiting**: Upbit API 제한 준수 (주문 8/s, 시세 25/s)
 - **Graceful shutdown**: SIGINT/SIGTERM 핸들링
+- **Docker HEALTHCHECK**: 30초 heartbeat 파일 기반 상태 확인
+- **Error alerting**: Telegram 에러 알림 (5분 쿨다운 스로틀)
 - **멀티 계좌**: `asyncio.gather()`로 동시 실행
 
 ---
@@ -242,21 +250,21 @@ crypto-lab Bot Monitor가 `gs://bot-log/logs/{account}/`에서 읽어 포지션,
 
 ```
 crypto-bot/
-├── bot.py                  # Entry point (asyncio)
+├── bot.py                  # Entry point (LOG_FORMAT 전환)
 ├── bot/
-│   ├── bot.py              # VBOBot: 멀티 계좌 트레이딩 루프 + 일일 리포트
-│   ├── config.py           # Config dataclass, retry decorator, .env 로더
+│   ├── bot.py              # VBOBot: 멀티 계좌 트레이딩 루프 + 일일 리포트 + heartbeat
+│   ├── config.py           # Config, RateLimiter, retry, JsonFormatter, .env 로더
 │   ├── market.py           # DailySignals: VBO 신호 계산
 │   ├── account.py          # Account: 주문 실행 (매수/매도)
 │   ├── tracker.py          # PositionTracker: positions.json 영속성
 │   ├── logger.py           # TradeLogger: 날짜별 CSV 로깅
-│   └── utils.py            # Telegram 알림
-├── tests/                  # 54 tests (unit + integration)
+│   └── utils.py            # Telegram 알림 + 에러 스로틀
+├── tests/                  # 63 tests (unit + integration)
 ├── scripts/
 │   └── liquidate.py        # 긴급 포지션 청산
-├── Dockerfile              # Multi-stage python:3.12-slim
-├── docker-compose.yml      # Volume mount로 hot reload
-└── requirements.txt        # pyupbit, pandas
+├── Dockerfile              # Multi-stage python:3.12-slim + HEALTHCHECK
+├── docker-compose.yml      # Volume mount + healthcheck + log rotation
+└── pyproject.toml          # 의존성 + ruff/mypy/pytest 설정
 ```
 
 ---

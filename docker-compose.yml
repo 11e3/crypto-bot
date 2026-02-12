@@ -7,6 +7,12 @@ services:
       - ./logs:/app/logs
       - ./bot:/app/bot:ro
       - ./bot.py:/app/bot.py:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import time;from pathlib import Path;t=float(Path('/app/logs/.heartbeat').read_text());exit(0 if time.time()-t<120 else 1)"]
+      interval: 60s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
     logging:
       driver: json-file
       options:

@@ -107,7 +107,7 @@ class TestTradeLogger:
         path = logger.log_dir / "trades_2024-01-15.csv"
         assert path.exists()
 
-        with open(path) as f:
+        with path.open() as f:
             reader = csv.reader(f)
             header = next(reader)
 
@@ -128,7 +128,7 @@ class TestTradeLogger:
         logger.log(trade)
 
         path = logger.log_dir / "trades_2024-01-15.csv"
-        with open(path) as f:
+        with path.open() as f:
             reader = csv.DictReader(f)
             rows = list(reader)
 
@@ -164,7 +164,7 @@ class TestTradeLogger:
         logger.log(trade2)
 
         path = logger.log_dir / "trades_2024-01-15.csv"
-        with open(path) as f:
+        with path.open() as f:
             reader = csv.DictReader(f)
             rows = list(reader)
 
@@ -204,20 +204,22 @@ class TestTradeLogger:
         """Should not overwrite existing date CSV file."""
         path = logger.log_dir / "trades_2024-01-14.csv"
 
-        with open(path, "w", newline="") as f:
+        with path.open("w", newline="") as f:
             writer = csv.DictWriter(f, TradeLogger.FIELDS)
             writer.writeheader()
-            writer.writerow({
-                "timestamp": "2024-01-14T10:00:00+09:00",
-                "date": "2024-01-14",
-                "action": "BUY",
-                "symbol": "ETH",
-                "price": 3000.0,
-                "quantity": 1.0,
-                "amount": 3000.0,
-                "profit_pct": "",
-                "profit_krw": "",
-            })
+            writer.writerow(
+                {
+                    "timestamp": "2024-01-14T10:00:00+09:00",
+                    "date": "2024-01-14",
+                    "action": "BUY",
+                    "symbol": "ETH",
+                    "price": 3000.0,
+                    "quantity": 1.0,
+                    "amount": 3000.0,
+                    "profit_pct": "",
+                    "profit_krw": "",
+                }
+            )
 
         # Log another trade on same date
         trade = Trade(
@@ -233,7 +235,7 @@ class TestTradeLogger:
         )
         logger.log(trade)
 
-        with open(path) as f:
+        with path.open() as f:
             reader = csv.DictReader(f)
             rows = list(reader)
 

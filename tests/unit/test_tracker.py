@@ -102,14 +102,18 @@ class TestPositionTracker:
         positions_dir = temp_dir / "logs" / "test_account"
         positions_dir.mkdir(parents=True)
         positions_file = positions_dir / "positions.json"
-        positions_file.write_text(json.dumps({
-            "BTC": {
-                "symbol": "BTC",
-                "quantity": 0.5,
-                "entry_price": 50000.0,
-                "entry_time": "2024-01-15T10:00:00+09:00",
-            }
-        }))
+        positions_file.write_text(
+            json.dumps(
+                {
+                    "BTC": {
+                        "symbol": "BTC",
+                        "quantity": 0.5,
+                        "entry_price": 50000.0,
+                        "entry_time": "2024-01-15T10:00:00+09:00",
+                    }
+                }
+            )
+        )
 
         # Create tracker
         with patch("bot.tracker.Path") as mock_path:

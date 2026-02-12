@@ -5,10 +5,10 @@ import time
 
 import pyupbit
 
-from .config import get_config
+from .config import get_config, order_limiter
 from .logger import Trade, TradeLogger
 from .tracker import PositionTracker
-from .utils import send_telegram
+from .utils import send_telegram, send_telegram_error
 
 log = logging.getLogger("vbo")
 
@@ -26,6 +26,7 @@ class Account:
     def balance(self, currency: str = "KRW") -> float:
         """Get balance."""
         try:
+            order_limiter.wait()
             bal = self._api.get_balance(currency)
             return float(bal) if bal else 0.0
         except Exception as e:
@@ -35,14 +36,15 @@ class Account:
     def _get_fill(self, uuid: str, fallback: float) -> tuple[float, float]:
         """Get fill price and quantity from order."""
         try:
+            order_limiter.wait()
             info = self._api.get_order(uuid)
-            if info and info.get('state') in ('done', 'cancel'):
-                trades = info.get('trades', [])
+            if info and info.get("state") in ("done", "cancel"):
+                trades = info.get("trades", [])
                 if trades:
-                    krw = sum(float(t['funds']) for t in trades)
-                    qty = sum(float(t['volume']) for t in trades)
+                    krw = sum(float(t["funds"]) for t in trades)
+                    qty = sum(float(t["volume"]) for t in trades)
                     return (krw / qty if qty else fallback), qty
-            return float(info.get('price', fallback)), float(info.get('executed_volume', 0))
+            return float(info.get("price", fallback)), float(info.get("executed_volume", 0))
         except Exception:
             return fallback, 0.0
 
@@ -62,15 +64,18 @@ class Account:
             # Late entry check
             diff = (price / target - 1) * 100
             if abs(diff) > cfg.LATE_ENTRY_PCT:
-                log.info(f"[{self.name}] {symbol}: price {price:,.0f} not near target {target:,.0f} ({diff:+.1f}%)")
+                log.info(
+                    f"[{self.name}] {symbol}: price {price:,.0f} not near target {target:,.0f} ({diff:+.1f}%)"
+                )
                 return False
 
+            order_limiter.wait()
             result = self._api.buy_market_order(ticker, amount)
             if not result:
                 return False
 
             time.sleep(0.5)
-            fill_price, fill_qty = self._get_fill(result.get('uuid'), price)
+            fill_price, fill_qty = self._get_fill(result.get("uuid"), price)
             if fill_qty <= 0:
                 fill_qty = self.balance(symbol)
                 fill_price = amount / fill_qty if fill_qty else price
@@ -82,11 +87,14 @@ class Account:
             self._logger.log(Trade.buy(symbol, fill_price, fill_qty, amount))
 
             log.info(f"[{self.name}] BUY {symbol}: {fill_qty:.8f} @ {fill_price:,.0f}")
-            send_telegram(f"🟢 <b>BUY</b> [{self.name}] {symbol}\n{fill_qty:.8f} @ {fill_price:,.0f} KRW")
+            send_telegram(
+                f"🟢 <b>BUY</b> [{self.name}] {symbol}\n{fill_qty:.8f} @ {fill_price:,.0f} KRW"
+            )
             return True
 
         except Exception as e:
             log.error(f"[{self.name}] Buy error {symbol}: {e}")
+            send_telegram_error(f"[{self.name}] Buy failed {symbol}: {e}")
             return False
 
     def sell(self, symbol: str) -> bool:
@@ -105,23 +113,31 @@ class Account:
             price = pyupbit.get_current_price(ticker)
             price = float(price) if price else pos.entry_price
 
+            order_limiter.wait()
             result = self._api.sell_market_order(ticker, qty)
             if not result:
                 return False
 
             time.sleep(0.5)
-            fill_price, _ = self._get_fill(result.get('uuid'), price)
+            fill_price, _ = self._get_fill(result.get("uuid"), price)
 
             pnl_pct = (fill_price / pos.entry_price - 1) * 100 if pos.entry_price else 0
             pnl_krw = (fill_price - pos.entry_price) * qty if pos.entry_price else 0
 
             self.positions.remove(symbol)
-            self._logger.log(Trade.sell(symbol, fill_price, qty, fill_price * qty, pnl_pct, pnl_krw))
+            self._logger.log(
+                Trade.sell(symbol, fill_price, qty, fill_price * qty, pnl_pct, pnl_krw)
+            )
 
-            log.info(f"[{self.name}] SELL {symbol}: {qty:.8f} @ {fill_price:,.0f} ({pnl_pct:+.2f}%)")
-            send_telegram(f"🔴 <b>SELL</b> [{self.name}] {symbol}\n{pnl_pct:+.2f}% ({pnl_krw:+,.0f} KRW)")
+            log.info(
+                f"[{self.name}] SELL {symbol}: {qty:.8f} @ {fill_price:,.0f} ({pnl_pct:+.2f}%)"
+            )
+            send_telegram(
+                f"🔴 <b>SELL</b> [{self.name}] {symbol}\n{pnl_pct:+.2f}% ({pnl_krw:+,.0f} KRW)"
+            )
             return True
 
         except Exception as e:
             log.error(f"[{self.name}] Sell error {symbol}: {e}")
+            send_telegram_error(f"[{self.name}] Sell failed {symbol}: {e}")
             return False

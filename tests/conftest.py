@@ -18,14 +18,19 @@ def clean_env() -> Generator[None, None, None]:
 
     # Clear config-related env vars
     env_keys = [
-        "SYMBOLS", "MA_SHORT", "BTC_MA", "NOISE_RATIO",
-        "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID",
+        "SYMBOLS",
+        "MA_SHORT",
+        "BTC_MA",
+        "NOISE_RATIO",
+        "TELEGRAM_BOT_TOKEN",
+        "TELEGRAM_CHAT_ID",
     ]
     for key in env_keys:
         os.environ.pop(key, None)
 
     # Clear lru_cache for get_config
     from bot.config import get_config
+
     get_config.cache_clear()
 
     yield
@@ -61,13 +66,13 @@ def sample_ohlcv() -> pd.DataFrame:
         "close": [102 + i for i in range(30)],
         "volume": [1000 + i * 10 for i in range(30)],
     }
-    df = pd.DataFrame(data, index=dates)
-    return df
+    return pd.DataFrame(data, index=dates)
 
 
 @pytest.fixture
 def set_env():
     """Helper to set environment variables."""
+
     def _set_env(**kwargs: str) -> None:
         for key, value in kwargs.items():
             os.environ[key] = value

@@ -39,13 +39,16 @@ class TestTradingFlow:
     def sample_ohlcv(self) -> pd.DataFrame:
         """Create sample OHLCV data."""
         dates = pd.date_range("2024-01-01", periods=30, freq="D")
-        return pd.DataFrame({
-            "open": [100 + i for i in range(30)],
-            "high": [110 + i for i in range(30)],
-            "low": [90 + i for i in range(30)],
-            "close": [105 + i for i in range(30)],
-            "volume": [1000 + i * 10 for i in range(30)],
-        }, index=dates)
+        return pd.DataFrame(
+            {
+                "open": [100 + i for i in range(30)],
+                "high": [110 + i for i in range(30)],
+                "low": [90 + i for i in range(30)],
+                "close": [105 + i for i in range(30)],
+                "volume": [1000 + i * 10 for i in range(30)],
+            },
+            index=dates,
+        )
 
     def test_full_buy_flow(
         self,
@@ -55,9 +58,10 @@ class TestTradingFlow:
     ) -> None:
         """Test complete buy flow: signal -> position -> log."""
         # Setup mocks
-        with patch("bot.market.get_config", return_value=mock_config), \
-             patch("bot.market.pyupbit") as mock_upbit:
-
+        with (
+            patch("bot.market.get_config", return_value=mock_config),
+            patch("bot.market.pyupbit") as mock_upbit,
+        ):
             mock_upbit.get_ohlcv.return_value = sample_ohlcv
 
             # 1. Calculate signals
@@ -66,7 +70,7 @@ class TestTradingFlow:
             signal = signals.get("BTC")
 
             assert signal is not None
-            assert signal.can_buy == True  # MA conditions met (use == for numpy bool)
+            assert signal.can_buy  # MA conditions met
 
             # 2. Track position
             with patch("bot.tracker.Path") as mock_path:
@@ -85,7 +89,7 @@ class TestTradingFlow:
                 assert position.entry_price == signal.target_price
 
             # 3. Log trade
-            with patch("bot.logger.Path") as mock_log_path:
+            with patch("bot.logger.Path"):
                 logger = TradeLogger.__new__(TradeLogger)
                 logger.account = "test_account"
                 logger.log_dir = temp_logs_dir
@@ -109,14 +113,18 @@ class TestTradingFlow:
         """Test complete sell flow: position -> sell -> remove -> log."""
         # Setup initial position
         positions_file = temp_logs_dir / "positions.json"
-        positions_file.write_text(json.dumps({
-            "BTC": {
-                "symbol": "BTC",
-                "quantity": 0.001,
-                "entry_price": 50000.0,
-                "entry_time": "2024-01-15T10:00:00+09:00",
-            }
-        }))
+        positions_file.write_text(
+            json.dumps(
+                {
+                    "BTC": {
+                        "symbol": "BTC",
+                        "quantity": 0.001,
+                        "entry_price": 50000.0,
+                        "entry_time": "2024-01-15T10:00:00+09:00",
+                    }
+                }
+            )
+        )
 
         # 1. Load position
         tracker = PositionTracker.__new__(PositionTracker)
@@ -218,17 +226,21 @@ class TestTradingFlow:
         """Test signals when market is bearish (should_sell=True)."""
         # Create bearish OHLCV data (declining prices)
         dates = pd.date_range("2024-01-01", periods=30, freq="D")
-        bearish_ohlcv = pd.DataFrame({
-            "open": [130 - i for i in range(30)],
-            "high": [135 - i for i in range(30)],
-            "low": [125 - i for i in range(30)],
-            "close": [128 - i for i in range(30)],  # Declining close
-            "volume": [1000 + i * 10 for i in range(30)],
-        }, index=dates)
+        bearish_ohlcv = pd.DataFrame(
+            {
+                "open": [130 - i for i in range(30)],
+                "high": [135 - i for i in range(30)],
+                "low": [125 - i for i in range(30)],
+                "close": [128 - i for i in range(30)],  # Declining close
+                "volume": [1000 + i * 10 for i in range(30)],
+            },
+            index=dates,
+        )
 
-        with patch("bot.market.get_config", return_value=mock_config), \
-             patch("bot.market.pyupbit") as mock_upbit:
-
+        with (
+            patch("bot.market.get_config", return_value=mock_config),
+            patch("bot.market.pyupbit") as mock_upbit,
+        ):
             mock_upbit.get_ohlcv.return_value = bearish_ohlcv
 
             signals = DailySignals()

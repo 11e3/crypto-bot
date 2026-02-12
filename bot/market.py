@@ -7,7 +7,7 @@ from datetime import time as dt_time
 
 import pyupbit
 
-from .config import get_config, retry
+from .config import get_config, quotation_limiter, retry
 
 log = logging.getLogger("vbo")
 
@@ -18,15 +18,17 @@ KST = timezone(timedelta(hours=9))
 @dataclass(frozen=True)
 class Signal:
     """VBO signal for a single symbol."""
+
     symbol: str
     target_price: float
-    can_buy: bool      # MA conditions met
+    can_buy: bool  # MA conditions met
     should_sell: bool  # Exit conditions met
 
 
 @retry(max_attempts=3, delay=0.5)
 def _fetch_price(ticker: str) -> float:
     """Fetch price with retry."""
+    quotation_limiter.wait()
     price = pyupbit.get_current_price(ticker)
     if not price:
         raise ValueError(f"No price for {ticker}")
@@ -36,7 +38,7 @@ def _fetch_price(ticker: str) -> float:
 def get_price(symbol: str) -> float | None:
     """Get current price."""
     try:
-        return _fetch_price(f"KRW-{symbol}")
+        return float(_fetch_price(f"KRW-{symbol}"))
     except Exception as e:
         log.error(f"Price fetch failed for {symbol}: {e}")
         return None
@@ -45,7 +47,7 @@ def get_price(symbol: str) -> float | None:
 class DailySignals:
     """Daily VBO signals calculator. Recalculates at 9AM KST."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._signals: dict[str, Signal] = {}
         self._date: str | None = None
 
@@ -64,12 +66,13 @@ class DailySignals:
 
         # BTC data (market filter for entry)
         try:
+            quotation_limiter.wait()
             btc = pyupbit.get_ohlcv("KRW-BTC", interval="day", count=bars)
             if btc is None or len(btc) < cfg.btc_ma + 1:
                 log.error("BTC data insufficient")
                 return False
-            btc_ma = btc['close'].rolling(cfg.btc_ma).mean()
-            btc_bull = btc['close'].iloc[-2] > btc_ma.iloc[-2]
+            btc_ma = btc["close"].rolling(cfg.btc_ma).mean()
+            btc_bull = btc["close"].iloc[-2] > btc_ma.iloc[-2]
         except Exception as e:
             log.error(f"BTC error: {e}")
             return False
@@ -78,15 +81,16 @@ class DailySignals:
         signals = {}
         for symbol in cfg.symbols:
             try:
+                quotation_limiter.wait()
                 df = pyupbit.get_ohlcv(f"KRW-{symbol}", interval="day", count=bars)
                 if df is None or len(df) < cfg.ma_short + 1:
                     continue
 
-                ema_short = df['close'].ewm(span=cfg.ma_short, adjust=False).mean()
-                prev_close = df['close'].iloc[-2]
+                ema_short = df["close"].ewm(span=cfg.ma_short, adjust=False).mean()
+                prev_close = df["close"].iloc[-2]
                 prev_ema_short = ema_short.iloc[-2]
-                today_open = df['open'].iloc[-1]
-                prev_range = df['high'].iloc[-2] - df['low'].iloc[-2]
+                today_open = df["open"].iloc[-1]
+                prev_range = df["high"].iloc[-2] - df["low"].iloc[-2]
 
                 # V1.1: Entry = VBO + BTC, Exit = EMA5
                 coin_ema5_bull = prev_close > prev_ema_short

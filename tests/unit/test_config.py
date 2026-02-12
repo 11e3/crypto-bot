@@ -1,11 +1,14 @@
 """Tests for bot.config module."""
 
+import json
+import logging
 import os
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
-from bot.config import Config, get_config, load_env, retry
+from bot.config import Config, JsonFormatter, RateLimiter, get_config, load_env, retry
 
 
 class TestLoadEnv:
@@ -202,7 +205,7 @@ class TestConfig:
             telegram_chat_id="",
         )
 
-        with pytest.raises(Exception):  # FrozenInstanceError
+        with pytest.raises(AttributeError):
             config.ma_short = 10  # type: ignore
 
 
@@ -248,3 +251,85 @@ class TestGetConfig:
 
         assert config1 is config2
         assert config1.symbols == ("BTC",)
+
+
+class TestRateLimiter:
+    """Tests for RateLimiter class."""
+
+    def test_first_call_no_wait(self) -> None:
+        """Should not wait on first call."""
+        limiter = RateLimiter(10)
+        with patch("bot.config.time") as mock_time:
+            mock_time.time.return_value = 1000.0
+            limiter.wait()
+            mock_time.sleep.assert_not_called()
+
+    def test_rapid_calls_throttled(self) -> None:
+        """Should throttle rapid consecutive calls."""
+        limiter = RateLimiter(10)  # 0.1s interval
+        limiter._last_call = 1000.0
+
+        with patch("bot.config.time") as mock_time:
+            mock_time.time.return_value = 1000.05  # 50ms later (< 100ms interval)
+            limiter.wait()
+            mock_time.sleep.assert_called_once()
+            sleep_duration = mock_time.sleep.call_args[0][0]
+            assert 0.04 < sleep_duration < 0.06
+
+    def test_slow_calls_no_throttle(self) -> None:
+        """Should not throttle if enough time has passed."""
+        limiter = RateLimiter(10)  # 0.1s interval
+        limiter._last_call = 1000.0
+
+        with patch("bot.config.time") as mock_time:
+            mock_time.time.return_value = 1000.2  # 200ms later (> 100ms interval)
+            limiter.wait()
+            mock_time.sleep.assert_not_called()
+
+
+class TestJsonFormatter:
+    """Tests for JsonFormatter class."""
+
+    def test_format_produces_valid_json(self) -> None:
+        """Should produce valid JSON output."""
+        formatter = JsonFormatter()
+        record = logging.LogRecord(
+            name="vbo",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="Test message",
+            args=(),
+            exc_info=None,
+        )
+        result = formatter.format(record)
+        parsed = json.loads(result)
+
+        assert parsed["level"] == "INFO"
+        assert parsed["msg"] == "Test message"
+        assert parsed["module"] == "test"
+        assert "ts" in parsed
+
+    def test_format_includes_exception(self) -> None:
+        """Should include exception info when present."""
+        formatter = JsonFormatter()
+        try:
+            raise ValueError("test error")
+        except ValueError:
+            import sys
+
+            record = logging.LogRecord(
+                name="vbo",
+                level=logging.ERROR,
+                pathname="test.py",
+                lineno=1,
+                msg="Error occurred",
+                args=(),
+                exc_info=sys.exc_info(),
+            )
+        result = formatter.format(record)
+        parsed = json.loads(result)
+
+        assert parsed["level"] == "ERROR"
+        assert "exc" in parsed
+        assert "ValueError" in parsed["exc"]

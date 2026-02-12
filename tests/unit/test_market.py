@@ -40,7 +40,7 @@ class TestSignal:
             should_sell=False,
         )
 
-        with pytest.raises(Exception):
+        with pytest.raises(AttributeError):
             signal.target_price = 60000.0  # type: ignore
 
 
@@ -164,9 +164,10 @@ class TestDailySignals:
         # today_open = 129 (last row open)
         # prev_range = 133 - 123 = 10 (second to last row high - low)
         # target = 129 + 10 * 0.5 = 134
-        expected_target = sample_ohlcv["open"].iloc[-1] + (
-            sample_ohlcv["high"].iloc[-2] - sample_ohlcv["low"].iloc[-2]
-        ) * 0.5
+        expected_target = (
+            sample_ohlcv["open"].iloc[-1]
+            + (sample_ohlcv["high"].iloc[-2] - sample_ohlcv["low"].iloc[-2]) * 0.5
+        )
         assert signal.target_price == expected_target
 
     def test_get_triggers_recalculate_on_new_day(

@@ -1,9 +1,0 @@
-# VBO Trading Bot Dependencies
-
-# Core dependencies
-pyupbit>=0.2.32
-pandas>=2.0.0
-
-# Optional (for advanced features)
-# python-dotenv>=1.0.0  # If not using built-in .env loader
-# requests>=2.31.0      # For custom HTTP requests

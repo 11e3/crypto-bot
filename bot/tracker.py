@@ -14,6 +14,7 @@ log = logging.getLogger("vbo")
 @dataclass
 class Position:
     """Bot position info."""
+
     symbol: str
     quantity: float
     entry_price: float
@@ -39,23 +40,22 @@ class PositionTracker:
             log.warning(f"[{self.account}] Position load failed: {e}")
             return {}
 
-    def _save(self):
+    def _save(self) -> None:
         try:
             data = {k: asdict(v) for k, v in self._positions.items()}
             self._path.write_text(json.dumps(data, indent=2))
         except Exception as e:
             log.error(f"[{self.account}] Position save failed: {e}")
 
-    def add(self, symbol: str, qty: float, price: float):
+    def add(self, symbol: str, qty: float, price: float) -> None:
         """Record new position."""
         self._positions[symbol] = Position(
-            symbol=symbol, quantity=qty, entry_price=price,
-            entry_time=datetime.now(KST).isoformat()
+            symbol=symbol, quantity=qty, entry_price=price, entry_time=datetime.now(KST).isoformat()
         )
         self._save()
         log.info(f"[{self.account}] Position added: {symbol}")
 
-    def remove(self, symbol: str):
+    def remove(self, symbol: str) -> None:
         """Remove position."""
         if symbol in self._positions:
             del self._positions[symbol]

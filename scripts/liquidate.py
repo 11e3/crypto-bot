@@ -33,7 +33,7 @@ def get_accounts() -> list[tuple[str, pyupbit.Upbit]]:
     return accounts
 
 
-def liquidate_account(name: str, api: pyupbit.Upbit) -> float:
+def liquidate_account(_name: str, api: pyupbit.Upbit) -> float:
     """Sell all coins in account. Returns total KRW value."""
     total = 0.0
     try:
@@ -47,18 +47,18 @@ def liquidate_account(name: str, api: pyupbit.Upbit) -> float:
         return 0.0
 
     for bal in balances:
-        currency = bal['currency']
-        if currency == 'KRW':
+        currency = bal["currency"]
+        if currency == "KRW":
             continue
 
-        amount = float(bal['balance'])
+        amount = float(bal["balance"])
         if amount <= 0:
             continue
 
         ticker = f"KRW-{currency}"
         try:
             price = pyupbit.get_current_price(ticker)
-        except:
+        except Exception:
             price = None
         if not price:
             print(f"  {currency}: no KRW market, skip")
@@ -75,7 +75,7 @@ def liquidate_account(name: str, api: pyupbit.Upbit) -> float:
         else:
             print(f"  {currency}: selling {amount:.8f} @ {price:,.0f}...", end=" ")
             result = api.sell_market_order(ticker, amount)
-            if result and 'uuid' in result:
+            if result and "uuid" in result:
                 print("OK")
                 total += value
             else:

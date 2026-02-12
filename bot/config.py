@@ -1,5 +1,6 @@
 """Configuration management."""
 
+import json as _json
 import logging
 import os
 import time
@@ -10,7 +11,7 @@ from pathlib import Path
 from typing import TypeVar
 
 log = logging.getLogger("vbo")
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def load_env(path: str = ".env") -> None:
@@ -32,9 +33,10 @@ def load_env(path: str = ".env") -> None:
 
 def retry(max_attempts: int = 3, delay: float = 1.0) -> Callable:
     """Retry decorator with exponential backoff."""
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @wraps(func)
-        def wrapper(*args, **kwargs) -> T:
+        def wrapper(*args: object, **kwargs: object) -> T:
             last_error = None
             for attempt in range(max_attempts):
                 try:
@@ -42,20 +44,46 @@ def retry(max_attempts: int = 3, delay: float = 1.0) -> Callable:
                 except Exception as e:
                     last_error = e
                     if attempt < max_attempts - 1:
-                        wait = delay * (2 ** attempt)
-                        log.warning(f"{func.__name__} failed (attempt {attempt + 1}), retry in {wait}s: {e}")
+                        wait = delay * (2**attempt)
+                        log.warning(
+                            f"{func.__name__} failed (attempt {attempt + 1}), retry in {wait}s: {e}"
+                        )
                         time.sleep(wait)
-            raise last_error
+            raise last_error  # type: ignore[misc]
+
         return wrapper
+
     return decorator
+
+
+class RateLimiter:
+    """Simple rate limiter using minimum interval between calls."""
+
+    def __init__(self, calls_per_second: float) -> None:
+        self._min_interval = 1.0 / calls_per_second
+        self._last_call = 0.0
+
+    def wait(self) -> None:
+        """Block until rate limit allows next call."""
+        now = time.time()
+        elapsed = now - self._last_call
+        if elapsed < self._min_interval:
+            time.sleep(self._min_interval - elapsed)
+        self._last_call = time.time()
+
+
+# Upbit API rate limiters (with safety margin)
+order_limiter = RateLimiter(8)  # 10 req/s limit
+quotation_limiter = RateLimiter(25)  # 30 req/s limit
 
 
 @dataclass(frozen=True)
 class Config:
     """Immutable bot configuration."""
+
     symbols: tuple[str, ...]
     ma_short: int  # Used for exit condition only
-    btc_ma: int    # Used for entry condition
+    btc_ma: int  # Used for entry condition
     noise_ratio: float
     telegram_token: str
     telegram_chat_id: str
@@ -64,12 +92,12 @@ class Config:
     FEE: float = 0.0005
     MIN_ORDER_KRW: int = 5000
     CHECK_INTERVAL_SEC: int = 1
-    LATE_ENTRY_PCT: float = 1.0      # ±1% of target
-    ORDER_DELAY_SEC: float = 0.2     # delay between orders
+    LATE_ENTRY_PCT: float = 1.0  # ±1% of target
+    ORDER_DELAY_SEC: float = 0.2  # delay between orders
     API_RETRY_COUNT: int = 3
     API_RETRY_DELAY: float = 1.0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate config values."""
         errors = []
         if not self.symbols:
@@ -82,6 +110,21 @@ class Config:
             errors.append(f"noise_ratio must be in (0, 1], got {self.noise_ratio}")
         if errors:
             raise ValueError(f"Invalid config: {'; '.join(errors)}")
+
+
+class JsonFormatter(logging.Formatter):
+    """JSON log formatter for structured logging."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        log_entry = {
+            "ts": self.formatTime(record),
+            "level": record.levelname,
+            "msg": record.getMessage(),
+            "module": record.module,
+        }
+        if record.exc_info and record.exc_info[0]:
+            log_entry["exc"] = self.formatException(record.exc_info)
+        return _json.dumps(log_entry, ensure_ascii=False)
 
 
 @lru_cache(maxsize=1)
