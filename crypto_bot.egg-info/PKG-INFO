@@ -45,18 +45,17 @@ Part of: [crypto-lab](https://github.com/11e3/crypto-lab) → [bt](https://githu
 │                    Crypto Quant Ecosystem                       │
 ├─────────────────────────────────────────────────────────────────┤
 │  crypto-lab     │  Dashboard & data pipeline          │
-│    └── Bot log viewer    │  - Reads logs from GCS ◄────────┐   │
-├──────────────────────────┼─────────────────────────────────┤   │
-│  bt                      │  Backtesting engine             │   │
-│    └── Strategy dev      │  - Strategies validated here    │   │
-├──────────────────────────┼─────────────────────────────────┤   │
-│  crypto-bot (this repo)  │  Live trading bot               │   │
-│    ├── Auto trading      │  - Executes validated strategies│   │
-│    ├── GCS log upload    │  - Uploads logs to GCS ─────────┘   │
-│    └── ML model load     │  - Loads .pkl from GCS ◄────────┐   │
-├──────────────────────────┼─────────────────────────────────┤   │
-│  crypto-regime-ml        │  Market regime classifier       │   │
-│    └── Model export      │  - Uploads .pkl to GCS ─────────┘   │
+│    └── Bot log viewer    │  - Reads trade logs             │
+├──────────────────────────┼──────────────────────────────────┤
+│  bt                      │  Backtesting engine              │
+│    └── Strategy dev      │  - Strategies validated here     │
+├──────────────────────────┼──────────────────────────────────┤
+│  crypto-bot (this repo)  │  Live trading bot                │
+│    ├── Auto trading      │  - Executes validated strategies │
+│    └── ML model load     │  - Loads ML models               │
+├──────────────────────────┼──────────────────────────────────┤
+│  crypto-regime-ml        │  Market regime classifier        │
+│    └── Model export      │  - Exports .pkl models           │
 └──────────────────────────┴──────────────────────────────────────┘
 ```
 
@@ -90,7 +89,7 @@ GCP e2-micro (free tier)
 ├── Docker (python:3.12-slim)
 ├── Volume: ./bot, ./bot.py (hot reload)
 ├── Process: systemd managed
-└── Logs: → GCS bucket (gsutil cron)
+└── Logs: → local volume mount
 ```
 
 ### Resource Optimization
@@ -164,23 +163,8 @@ sudo systemctl daemon-reload
 sudo systemctl enable bot
 sudo systemctl start bot
 
-# 5. Setup GCS log sync (optional)
-# Add to crontab: */5 * * * * gsutil -m rsync -r /opt/crypto-bot/logs gs://your-bucket/logs/
-```
-
-## GCS Integration
-
-### Log Sync (gsutil cron)
-
-```bash
-# Logs are stored locally in logs/{account_name}/ folder
-# Sync to GCS via cron for lightweight Docker image
-
-# Add to crontab
-crontab -e
-
-# Sync every 5 minutes
-*/5 * * * * gsutil -m rsync -r /opt/crypto-bot/logs gs://your-bucket/bot-logs/
+# 5. Check logs
+docker-compose logs -f
 ```
 
 ### Log Structure
@@ -295,7 +279,7 @@ Bot sends daily Telegram report including:
 |----------|-----------|
 | Direct pyupbit usage | Lightweight vs ccxt, Upbit-specific optimization |
 | asyncio-based | Concurrent multi-account handling, minimized I/O wait |
-| CSV logging | Simplicity, pandas compatibility, easy GCS integration |
+| CSV logging | Simplicity, pandas compatibility |
 | systemd + Docker | Auto-restart, log management, deployment consistency |
 | Signal caching (1 day) | Minimize API calls, leverage daily candle strategy |
 | Single KST constant | Prevent timezone bugs, code consistency |
