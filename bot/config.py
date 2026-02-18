@@ -8,6 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache, wraps
 from pathlib import Path
+from threading import Lock
 from typing import TypeVar
 
 log = logging.getLogger("vbo")
@@ -62,14 +63,16 @@ class RateLimiter:
     def __init__(self, calls_per_second: float) -> None:
         self._min_interval = 1.0 / calls_per_second
         self._last_call = 0.0
+        self._lock = Lock()
 
     def wait(self) -> None:
         """Block until rate limit allows next call."""
-        now = time.time()
-        elapsed = now - self._last_call
-        if elapsed < self._min_interval:
-            time.sleep(self._min_interval - elapsed)
-        self._last_call = time.time()
+        with self._lock:
+            now = time.time()
+            elapsed = now - self._last_call
+            if elapsed < self._min_interval:
+                time.sleep(self._min_interval - elapsed)
+            self._last_call = time.time()
 
 
 # Upbit API rate limiters (with safety margin)

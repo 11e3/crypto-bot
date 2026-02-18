@@ -80,6 +80,16 @@ class TestTrade:
 class TestTradeLogger:
     """Tests for TradeLogger class."""
 
+    def test_init_creates_log_dir(self, temp_dir: Path) -> None:
+        """Should initialize log directory."""
+        expected = temp_dir / "logs" / "real_account"
+
+        with patch("bot.logger.Path", return_value=expected):
+            logger = TradeLogger("real_account")
+
+        assert logger.log_dir == expected
+        assert expected.exists()
+
     @pytest.fixture
     def logger(self, temp_dir: Path) -> TradeLogger:
         """Create logger with temp directory."""

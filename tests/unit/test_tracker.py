@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from threading import Lock
 from unittest.mock import patch
 
 import pytest
@@ -38,6 +39,7 @@ class TestPositionTracker:
             tracker.account = "test_account"
             tracker._path = temp_dir / "logs" / "test_account" / "positions.json"
             tracker._path.parent.mkdir(parents=True, exist_ok=True)
+            tracker._lock = Lock()
             tracker._positions = {}
             return tracker
 
@@ -63,6 +65,27 @@ class TestPositionTracker:
         """Should handle removing nonexistent position."""
         tracker.remove("NONEXISTENT")
         # Should not raise
+
+    def test_update_quantity_preserves_entry_metadata(self, tracker: PositionTracker) -> None:
+        """Should update quantity without changing entry price/time."""
+        tracker.add("BTC", 0.5, 50000.0)
+        original = tracker.get("BTC")
+        assert original is not None
+
+        tracker.update_quantity("BTC", 0.2)
+        updated = tracker.get("BTC")
+
+        assert updated is not None
+        assert updated.quantity == 0.2
+        assert updated.entry_price == original.entry_price
+        assert updated.entry_time == original.entry_time
+
+    def test_update_quantity_removes_when_non_positive(self, tracker: PositionTracker) -> None:
+        tracker.add("BTC", 0.5, 50000.0)
+
+        tracker.update_quantity("BTC", 0.0)
+
+        assert tracker.get("BTC") is None
 
     def test_get_nonexistent_position(self, tracker: PositionTracker) -> None:
         """Should return None for nonexistent position."""
@@ -96,6 +119,14 @@ class TestPositionTracker:
         assert "BTC" in data
         assert data["BTC"]["quantity"] == 0.5
 
+    def test_save_atomic_write_leaves_no_tmp_file(self, tracker: PositionTracker) -> None:
+        """Should persist via temp file replacement without leftover tmp file."""
+        tracker.add("BTC", 0.5, 50000.0)
+
+        tmp_path = tracker._path.with_suffix(f"{tracker._path.suffix}.tmp")
+        assert tracker._path.exists()
+        assert not tmp_path.exists()
+
     def test_load_existing_positions(self, temp_dir: Path) -> None:
         """Should load existing positions from file."""
         # Create positions file
@@ -122,6 +153,7 @@ class TestPositionTracker:
             tracker = PositionTracker.__new__(PositionTracker)
             tracker.account = "test_account"
             tracker._path = positions_file
+            tracker._lock = Lock()
             tracker._positions = tracker._load()
 
         assert tracker.has("BTC")
@@ -137,6 +169,7 @@ class TestPositionTracker:
         tracker = PositionTracker.__new__(PositionTracker)
         tracker.account = "test_account"
         tracker._path = positions_file
+        tracker._lock = Lock()
         tracker._positions = tracker._load()
 
         assert len(tracker._positions) == 0
@@ -148,6 +181,38 @@ class TestPositionTracker:
         tracker = PositionTracker.__new__(PositionTracker)
         tracker.account = "test_account"
         tracker._path = positions_file
+        tracker._lock = Lock()
         tracker._positions = tracker._load()
 
         assert len(tracker._positions) == 0
+
+    def test_init_sets_path_and_loads_positions(self, temp_dir: Path) -> None:
+        """Should initialize path and load existing positions."""
+        logs_dir = temp_dir / "logs" / "real_account"
+        logs_dir.mkdir(parents=True)
+        positions_file = logs_dir / "positions.json"
+        positions_file.write_text(
+            json.dumps(
+                {
+                    "BTC": {
+                        "symbol": "BTC",
+                        "quantity": 1.0,
+                        "entry_price": 40000.0,
+                        "entry_time": "2024-01-01T00:00:00+09:00",
+                    }
+                }
+            )
+        )
+
+        with patch("bot.tracker.Path", return_value=positions_file):
+            tracker = PositionTracker("real_account")
+
+        assert tracker.account == "real_account"
+        assert tracker._path == positions_file
+        assert tracker.has("BTC")
+
+    def test_save_handles_write_error(self, tracker: PositionTracker) -> None:
+        """Should swallow save errors and keep process alive."""
+        tracker._positions["BTC"] = Position("BTC", 0.1, 50000.0, "t")
+        with patch("pathlib.Path.write_text", side_effect=RuntimeError("disk error")):
+            tracker._save()  # should not raise

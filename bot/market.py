@@ -1,9 +1,11 @@
 """Market data and VBO signal calculation."""
 
 import logging
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from datetime import time as dt_time
+from threading import Lock
 
 import pyupbit
 
@@ -47,9 +49,13 @@ def get_price(symbol: str) -> float | None:
 class DailySignals:
     """Daily VBO signals calculator. Recalculates at 9AM KST."""
 
+    RECALC_RETRY_SEC = 30.0
+
     def __init__(self) -> None:
         self._signals: dict[str, Signal] = {}
         self._date: str | None = None
+        self._next_recalc_at = 0.0
+        self._lock = Lock()
 
     @staticmethod
     def _trading_date() -> str:
@@ -113,12 +119,29 @@ class DailySignals:
 
     def get(self, symbol: str) -> Signal | None:
         """Get signal for symbol, recalculate if needed."""
-        if self._date != self._trading_date():
-            self._calculate()
-        return self._signals.get(symbol)
+        with self._lock:
+            self._refresh_if_needed()
+            return self._signals.get(symbol)
 
     def all(self) -> dict[str, Signal]:
         """Get all signals, recalculate if needed."""
-        if self._date != self._trading_date():
-            self._calculate()
-        return self._signals
+        with self._lock:
+            self._refresh_if_needed()
+            return self._signals
+
+    def _refresh_if_needed(self) -> None:
+        trading_date = self._trading_date()
+        if self._date == trading_date:
+            return
+
+        now = time.time()
+        if now < self._next_recalc_at:
+            return
+
+        if self._calculate():
+            self._next_recalc_at = 0.0
+            return
+
+        # Fail-closed: never serve stale signals across trading dates.
+        self._signals = {}
+        self._next_recalc_at = now + self.RECALC_RETRY_SEC

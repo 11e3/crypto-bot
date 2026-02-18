@@ -9,7 +9,7 @@ from .config import get_config
 
 log = logging.getLogger("vbo")
 
-_last_error_time: float = 0.0
+_last_error_times: dict[str, float] = {}
 
 
 def send_telegram(message: str) -> bool:
@@ -30,11 +30,11 @@ def send_telegram(message: str) -> bool:
         return False
 
 
-def send_telegram_error(message: str, cooldown: float = 300.0) -> bool:
-    """Send error notification via Telegram (throttled to prevent spam)."""
-    global _last_error_time  # noqa: PLW0603
+def send_telegram_error(message: str, cooldown: float = 300.0, key: str = "global") -> bool:
+    """Send error notification via Telegram (keyed throttle)."""
     now = time.time()
-    if now - _last_error_time < cooldown:
+    last = _last_error_times.get(key, 0.0)
+    if now - last < cooldown:
         return False
-    _last_error_time = now
+    _last_error_times[key] = now
     return send_telegram(f"\u26a0\ufe0f <b>ERROR</b>\n{message}")

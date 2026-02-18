@@ -203,3 +203,99 @@ class TestDailySignals:
         assert len(result) == 2
         assert "BTC" in result
         assert "ETH" in result
+
+    def test_calculate_returns_false_on_btc_exception(
+        self,
+        signals: DailySignals,
+        mock_upbit: MagicMock,
+        mock_config: MagicMock,
+    ) -> None:
+        """Should return False when BTC fetch raises exception."""
+        mock_upbit.get_ohlcv.side_effect = RuntimeError("btc api down")
+
+        result = signals._calculate()
+
+        assert result is False
+
+    def test_calculate_returns_false_when_all_symbol_data_missing(
+        self,
+        signals: DailySignals,
+        mock_upbit: MagicMock,
+        mock_config: MagicMock,
+        sample_ohlcv: pd.DataFrame,
+    ) -> None:
+        """Should return False when no symbol signal is generated."""
+        mock_upbit.get_ohlcv.side_effect = [sample_ohlcv, None, None]
+
+        result = signals._calculate()
+
+        assert result is False
+
+    def test_calculate_continues_on_symbol_exception(
+        self,
+        signals: DailySignals,
+        mock_upbit: MagicMock,
+        mock_config: MagicMock,
+        sample_ohlcv: pd.DataFrame,
+    ) -> None:
+        """Should continue when one symbol fails and still build others."""
+
+        def _side_effect(ticker: str, **_: object):
+            if ticker == "KRW-BTC":
+                return sample_ohlcv
+            if ticker == "KRW-ETH":
+                raise RuntimeError("eth error")
+            return sample_ohlcv
+
+        mock_upbit.get_ohlcv.side_effect = _side_effect
+
+        result = signals._calculate()
+
+        assert result is True
+        assert "BTC" in signals._signals
+
+    def test_all_does_not_recalculate_when_date_unchanged(
+        self,
+        signals: DailySignals,
+        mock_upbit: MagicMock,
+        mock_config: MagicMock,
+        sample_ohlcv: pd.DataFrame,
+    ) -> None:
+        """Should return cached signals when trading date unchanged."""
+        mock_upbit.get_ohlcv.return_value = sample_ohlcv
+        with patch.object(DailySignals, "_trading_date", return_value="2024-01-15"):
+            signals._calculate()
+            before = dict(signals._signals)
+            result = signals.all()
+
+        assert result == before
+
+    def test_all_clears_stale_signals_when_recalculate_fails(self, signals: DailySignals) -> None:
+        """Should fail-closed and clear stale signals on date rollover failure."""
+        signals._date = "2024-01-14"
+        signals._signals = {
+            "BTC": Signal("BTC", 50000.0, can_buy=True, should_sell=False),
+        }
+
+        with (
+            patch.object(DailySignals, "_trading_date", return_value="2024-01-15"),
+            patch.object(DailySignals, "_calculate", return_value=False),
+        ):
+            result = signals.all()
+
+        assert result == {}
+
+    def test_all_applies_retry_backoff_after_failed_recalculate(self, signals: DailySignals) -> None:
+        """Should avoid repeated recalc attempts within backoff window."""
+        signals._date = "2024-01-14"
+
+        with (
+            patch.object(DailySignals, "_trading_date", return_value="2024-01-15"),
+            patch.object(DailySignals, "_calculate", return_value=False) as mock_calc,
+            patch("bot.market.time.time") as mock_time,
+        ):
+            mock_time.side_effect = [1000.0, 1005.0]
+            signals.all()
+            signals.all()
+
+        assert mock_calc.call_count == 1

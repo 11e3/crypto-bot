@@ -27,8 +27,11 @@ def get_accounts() -> list[tuple[str, pyupbit.Upbit]]:
         name = os.getenv(f"ACCOUNT_{i}_NAME")
         key = os.getenv(f"ACCOUNT_{i}_ACCESS_KEY")
         secret = os.getenv(f"ACCOUNT_{i}_SECRET_KEY")
+        if not any([name, key, secret]):
+            continue
         if not all([name, key, secret]):
-            break
+            print(f"Skipping ACCOUNT_{i}: incomplete credentials")
+            continue
         accounts.append((name, pyupbit.Upbit(key, secret)))
     return accounts
 

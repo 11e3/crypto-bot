@@ -39,8 +39,13 @@ class VBOBot:
             name = os.getenv(f"ACCOUNT_{i}_NAME")
             key = os.getenv(f"ACCOUNT_{i}_ACCESS_KEY")
             secret = os.getenv(f"ACCOUNT_{i}_SECRET_KEY")
+
+            if not any([name, key, secret]):
+                continue
             if not all([name, key, secret]):
-                break
+                log.warning(f"Skipping ACCOUNT_{i}: incomplete credentials")
+                continue
+
             self.accounts.append(Account(name, key, secret))  # type: ignore[arg-type]
 
         if not self.accounts:
@@ -54,7 +59,15 @@ class VBOBot:
 
         while self.running:
             try:
-                sigs = self.signals.all()
+                try:
+                    await asyncio.to_thread(account.reconcile_pending_buys)
+                except Exception as e:
+                    log.error(f"[{account.name}] Pending reconcile error: {e}")
+                    send_telegram_error(
+                        f"[{account.name}] Pending reconcile failed: {e}",
+                        key=f"{account.name}:pending-reconcile",
+                    )
+                sigs = await asyncio.to_thread(self.signals.all)
                 if not sigs:
                     await asyncio.sleep(10)
                     continue
@@ -63,41 +76,51 @@ class VBOBot:
                 for symbol in cfg.symbols:
                     sig = sigs.get(symbol)
                     if sig and account.positions.has(symbol) and sig.should_sell:
-                        account.sell(symbol)
+                        await asyncio.to_thread(account.sell, symbol)
 
                 # Collect buy candidates
                 buys = []
                 for symbol in cfg.symbols:
                     sig = sigs.get(symbol)
-                    if not sig or not sig.can_buy or account.positions.has(symbol):
+                    can_attempt_buy = True
+                    with contextlib.suppress(Exception):
+                        can_attempt_buy = bool(account.can_attempt_buy(symbol))
+                    if (
+                        not sig
+                        or not sig.can_buy
+                        or account.positions.has(symbol)
+                        or not can_attempt_buy
+                    ):
                         continue
-                    price = get_price(symbol)
+                    price = await asyncio.to_thread(get_price, symbol)
                     if price and price >= sig.target_price:
                         buys.append((symbol, sig.target_price))
 
                 # Execute buys with portfolio allocation
                 if buys:
-                    cash = account.balance("KRW")
-                    equity = cash + sum(
-                        account.balance(s) * (get_price(s) or 0)
-                        for s in cfg.symbols
-                        if account.positions.has(s)
-                    )
+                    cash = await asyncio.to_thread(account.balance, "KRW")
+                    equity = cash
+                    for s in cfg.symbols:
+                        if not account.positions.has(s):
+                            continue
+                        qty = await asyncio.to_thread(account.balance, s)
+                        price = await asyncio.to_thread(get_price, s)
+                        equity += qty * (price or 0)
                     alloc = equity / len(cfg.symbols)
 
                     for symbol, target in buys:
                         amount = min(alloc, cash * 0.99)
                         if amount <= 0:
                             continue
-                        if account.buy(symbol, target, amount):
-                            cash = account.balance("KRW")
+                        if await asyncio.to_thread(account.buy, symbol, target, amount):
+                            cash = await asyncio.to_thread(account.balance, "KRW")
                         await asyncio.sleep(cfg.ORDER_DELAY_SEC)
 
                 await asyncio.sleep(cfg.CHECK_INTERVAL_SEC)
 
             except Exception as e:
                 log.error(f"[{account.name}] Error: {e}")
-                send_telegram_error(f"[{account.name}] Loop error: {e}")
+                send_telegram_error(f"[{account.name}] Loop error: {e}", key=f"{account.name}:loop")
                 await asyncio.sleep(5)
 
     def _daily_report(self) -> None:
@@ -166,7 +189,7 @@ class VBOBot:
             )
 
             if is_report_time and not reported_today:
-                self._daily_report()
+                await asyncio.to_thread(self._daily_report)
                 reported_today = True
             elif now.time() >= dt_time(DAILY_REPORT_HOUR, 1):
                 reported_today = False

@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from threading import Lock
 from unittest.mock import patch
 
 import pandas as pd
@@ -80,6 +81,7 @@ class TestTradingFlow:
                 tracker = PositionTracker.__new__(PositionTracker)
                 tracker.account = "test_account"
                 tracker._path = positions_file
+                tracker._lock = Lock()
                 tracker._positions = {}
 
                 tracker.add("BTC", 0.001, signal.target_price)
@@ -130,6 +132,7 @@ class TestTradingFlow:
         tracker = PositionTracker.__new__(PositionTracker)
         tracker.account = "test_account"
         tracker._path = positions_file
+        tracker._lock = Lock()
         tracker._positions = tracker._load()
 
         position = tracker.get("BTC")
@@ -177,6 +180,7 @@ class TestTradingFlow:
         tracker1 = PositionTracker.__new__(PositionTracker)
         tracker1.account = "test_account"
         tracker1._path = positions_file
+        tracker1._lock = Lock()
         tracker1._positions = {}
         tracker1.add("BTC", 0.5, 50000.0)
 
@@ -184,6 +188,7 @@ class TestTradingFlow:
         tracker2 = PositionTracker.__new__(PositionTracker)
         tracker2.account = "test_account"
         tracker2._path = positions_file
+        tracker2._lock = Lock()
         tracker2._positions = tracker2._load()
 
         assert tracker2.has("BTC")
@@ -203,6 +208,7 @@ class TestTradingFlow:
         tracker = PositionTracker.__new__(PositionTracker)
         tracker.account = "test_account"
         tracker._path = positions_file
+        tracker._lock = Lock()
         tracker._positions = {}
 
         # Add multiple positions
