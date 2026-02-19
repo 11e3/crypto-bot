@@ -7,3 +7,11 @@ bot.log
 *.log
 .bot_positions_*.json
 trades_*.csv
+.coverage
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.github
+.benchmarks
+.claude
+crypto_bot.egg-info
