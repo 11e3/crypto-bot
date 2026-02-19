@@ -18,3 +18,4 @@ crypto_bot.egg-info
 tests/
 .claude
 .github
+CLAUDE.md
