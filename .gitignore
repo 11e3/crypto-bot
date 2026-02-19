@@ -13,6 +13,5 @@ trades_*.csv
 .benchmarks
 
 .claude
-.github
 crypto_bot.egg-info
 CLAUDE.md
