@@ -1,279 +1,189 @@
 # Crypto Bot
 
-Upbit KRW 페어 실매매 트레이딩 봇. VBO(Volatility Breakout) 전략, 멀티 계좌, 텔레그램 알림.
-
-[crypto-lab](https://github.com/11e3/crypto-lab) / **[crypto-bot](https://github.com/11e3/crypto-bot)**
+Upbit KRW 마켓 실매매용 VBO(Volatility Breakout) 봇입니다.
+현재 코드는 멀티 계좌, 일일 시그널 캐시, 포지션 영속화, Telegram 알림, Docker 헬스체크를 포함합니다.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/badge/Docker-slim-blue.svg)](https://hub.docker.com/)
-[![GCP](https://img.shields.io/badge/GCP-e2--micro-yellow.svg)](https://cloud.google.com/)
 
----
+## 핵심 기능
 
-## Live Trading Performance (Upbit)
+- Upbit KRW 페어 실매매 (`pyupbit`)
+- 멀티 계좌 동시 실행 (`ACCOUNT_1..N`)
+- 전략 시그널 09:00 KST 기준 일일 재계산 (`DailySignals`)
+- 계좌별 상태 파일 영속화
+- Telegram 체결/오류 알림 (키 기반 쿨다운 스로틀)
+- Docker heartbeat 기반 헬스체크
 
-<table>
-  <tr>
-    <td align="center"><b>2024</b><br>Return: 101.26%</td>
-    <td align="center"><b>2025</b><br>Return: 19.28%</td>
-    <td align="center"><b>2026 YTD</b><br>Return: 7.99%</td>
-  </tr>
-  <tr>
-    <td><img src="images/KakaoTalk_20260208_142941894_01.jpg" width="333"/></td>
-    <td><img src="images/KakaoTalk_20260208_142941894_02.jpg" width="333"/></td>
-    <td><img src="images/KakaoTalk_20260208_142941894_03.jpg" width="333"/></td>
-  </tr>
-</table>
+## 전략 요약 (VBO V1.1)
 
----
+전략 핵심은 `bot/market.py`와 `bot/bot.py`에 구현되어 있습니다.
 
-## Ecosystem
+| 항목 | 규칙 |
+|---|---|
+| Entry target | `today_open + (prev_high - prev_low) * NOISE_RATIO` |
+| Entry filter | 전일 BTC 종가 `> BTC_MA` |
+| Buy trigger | 현재가 `>= target_price` |
+| Late entry 보호 | 현재가-목표가 괴리가 `±LATE_ENTRY_PCT` 초과 시 매수 거부 |
+| Exit signal | 전일 코인 종가 `<= EMA(MA_SHORT)` |
+| 자금 배분 | `equity / symbol_count` 기준, 주문 시 `min(alloc, cash * 0.99)` |
 
-2개 repo로 구성. 코드 의존성 없이 독립적으로 운영.
+## 런타임 동작
 
-```
-┌─────────────────────────────────────────────────┐
-│  crypto-bot (this repo)                         │
-│                                                 │
-│  Live Trading Bot (VBO V1.1)                    │
-│  Upbit 실매매 · 멀티 계좌                          │
-│  Docker / GCP e2-micro                          │
-└─────────────────────────────────────────────────┘
+`bot.py` 실행 시:
 
-┌─────────────────────────────────────────────────┐
-│  crypto-lab                                     │
-│                                                 │
-│  Backtesting Engine ─── Strategy Framework      │
-│  Streamlit Dashboard ── Bot Monitor             │
-│  Data Pipeline ──────── Risk Management         │
-│  Optimization ───────── WFA / Monte Carlo       │
-└─────────────────────────────────────────────────┘
-```
+1. `.env` 로드 (`load_env`)
+2. 로깅 포맷 설정 (`LOG_FORMAT=text|json`)
+3. `VBOBot().run()` 시작
 
-| Repo | 역할 | LOC | 상태 |
-|------|------|-----|------|
-| **crypto-bot** | Upbit 실매매 봇 (VBO) | ~850 | Active (독립 배포) |
-| **[crypto-lab](https://github.com/11e3/crypto-lab)** | 백테스트, 대시보드, 데이터 파이프라인 | ~7,500 | Active |
+메인 루프(계좌별, 기본 1초 간격):
 
----
+1. 미해결 매수(pending buy) 복구 시도
+2. 당일 시그널 조회 (필요 시 재계산)
+3. 매도 조건 충족 포지션 우선 청산
+4. 매수 후보 수집 후 시장가 매수
 
-## Strategy: VBO V1.1
+스케줄러:
 
-Volatility Breakout + MA 필터. 로직 전체가 `bot/market.py` (125줄).
-
-| Component | Rule |
-|-----------|------|
-| **Entry signal** | `open + prev_range * K` breakout (K=0.5) |
-| **Entry filter** | BTC `close > MA20` (시장 레짐 필터) |
-| **Exit signal** | `prev_close < prev_EMA5` |
-| **Allocation** | `equity / N` per symbol |
-| **Late entry** | 목표가 대비 ±1% 이상 이탈 시 거부 |
-
-### Trading Cycle (Daily)
-
-```
-09:00 KST ─── 신호 재계산 (DailySignals)
-              ├── Exit: prev_close < prev_EMA5 → 시장가 매도
-              ├── Entry targets 계산
-              └── Daily report (Telegram)
-
-09:00~09:00 ─ 1초 간격 루프
-              └── 현재가 ≥ 목표가 → 시장가 매수 (late entry 체크 포함)
-```
-
----
+- 09:00~09:01 KST: 일일 리포트 1회 전송
+- 30초 간격: `logs/.heartbeat` 업데이트
 
 ## Quick Start
 
-### Local
+### 1) 로컬 실행
 
 ```bash
 pip install .
-cp .env.example .env   # API 키 입력
+cp .env.example .env
 python bot.py
 ```
 
-### Docker
+### 2) Docker 실행
 
 ```bash
-docker-compose up -d --build
-
-# Hot reload (rebuild 불필요)
-git pull && docker-compose restart
+docker compose up -d --build
+docker compose logs -f
 ```
 
-### GCP e2-micro (Production)
+코드만 갱신할 때:
 
 ```bash
-# 1. Docker 설치
-sudo apt update && sudo apt install -y docker.io docker-compose
-sudo usermod -aG docker $USER
-
-# 2. 클론 & 설정
-cd /opt && sudo git clone https://github.com/11e3/crypto-bot.git
-cd crypto-bot && sudo cp .env.example .env
-sudo nano .env  # API 키 입력
-
-# 3. systemd 서비스
-sudo tee /etc/systemd/system/bot.service << 'EOF'
-[Unit]
-Description=VBO Trading Bot
-After=docker.service
-Requires=docker.service
-
-[Service]
-Type=simple
-WorkingDirectory=/opt/crypto-bot
-ExecStart=/usr/bin/docker-compose up
-ExecStop=/usr/bin/docker-compose down
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# 4. 시작
-sudo systemctl daemon-reload
-sudo systemctl enable bot
-sudo systemctl start bot
-
-# 5. 로그 확인
-docker-compose logs -f
+git pull
+docker compose restart
 ```
 
----
+## 환경 변수 (`.env`)
 
-## Configuration
+전체 예시는 `.env.example`에 있습니다.
 
-### Environment Variables (.env)
+### 계좌 (필수: 최소 1개)
 
 ```env
-# Exchange API (멀티 계좌 지원)
-ACCOUNT_1_NAME=account1
-ACCOUNT_1_ACCESS_KEY=your_access_key
-ACCOUNT_1_SECRET_KEY=your_secret_key
+ACCOUNT_1_NAME=Main
+ACCOUNT_1_ACCESS_KEY=...
+ACCOUNT_1_SECRET_KEY=...
+```
 
-ACCOUNT_2_NAME=account2
-ACCOUNT_2_ACCESS_KEY=your_access_key_2
-ACCOUNT_2_SECRET_KEY=your_secret_key_2
+`ACCOUNT_2_*`, `ACCOUNT_3_*` ... 형태로 추가 가능합니다.
 
-# Telegram 알림 (권장)
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_CHAT_ID=your_chat_id
+### 전략/알림/로깅
 
-# 전략 파라미터
+```env
 SYMBOLS=BTC,ETH
 MA_SHORT=5
 BTC_MA=20
 NOISE_RATIO=0.5
 
-# 로깅 (선택)
-# LOG_FORMAT=json   # "json" 또는 "text" (기본: text)
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_CHAT_ID=...
+
+# LOG_FORMAT=json
 ```
 
-### Trading Constants (config.py)
+### 코드 상수 (`bot/config.py`)
 
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `FEE` | 0.05% | Upbit 거래 수수료 |
-| `MIN_ORDER_KRW` | 5,000 | 최소 주문 금액 |
-| `LATE_ENTRY_PCT` | 1.0% | 목표가 대비 최대 이탈률 |
-| `CHECK_INTERVAL_SEC` | 1 | 메인 루프 간격 |
-| `ORDER_DELAY_SEC` | 0.2 | 연속 주문 사이 대기 |
+- `MIN_ORDER_KRW=5000`
+- `FEE=0.0005`
+- `CHECK_INTERVAL_SEC=1`
+- `ORDER_DELAY_SEC=0.2`
+- `LATE_ENTRY_PCT=1.0`
+- `API_RETRY_COUNT=3`, `API_RETRY_DELAY=1.0`
 
----
+## 상태 파일 / 로그 구조
 
-## Architecture
-
-```
-bot.py (entry point, LOG_FORMAT 전환)
-└── VBOBot (bot/bot.py)
-    ├── DailySignals (bot/market.py)     # VBO 신호 계산, 9AM KST 캐싱
-    ├── Account (bot/account.py)         # 시장가 주문 실행
-    ├── PositionTracker (bot/tracker.py) # positions.json 영속성
-    ├── TradeLogger (bot/logger.py)      # 날짜별 CSV 로깅
-    ├── Telegram (bot/utils.py)          # HTML 포맷 알림 + 에러 스로틀
-    └── Config (bot/config.py)           # RateLimiter, retry, JsonFormatter
-```
-
-**Core**: 849줄, 7개 모듈.
-
-### Resilience
-
-- **Position 영속성**: `positions.json`으로 재시작 시 포지션 복구
-- **Signal 캐싱**: 9AM KST에 1회 계산, 루프마다 재계산하지 않음
-- **Retry**: API 실패 시 exponential backoff (1s → 2s → 4s)
-- **Rate Limiting**: Upbit API 제한 준수 (주문 8/s, 시세 25/s)
-- **Graceful shutdown**: SIGINT/SIGTERM 핸들링
-- **Docker HEALTHCHECK**: 30초 heartbeat 파일 기반 상태 확인
-- **Error alerting**: Telegram 에러 알림 (5분 쿨다운 스로틀)
-- **멀티 계좌**: `asyncio.gather()`로 동시 실행
-
----
-
-## Log Structure
-
-```
+```text
 logs/
-├── {account1}/
-│   ├── trades_2025-01-16.csv       # 날짜별 거래 로그
-│   ├── trades_2025-01-17.csv
-│   └── positions.json              # 현재 포지션 (재시작 안전)
-└── {account2}/
-    ├── trades_2025-01-16.csv
-    └── positions.json
+├── .heartbeat
+├── {account}/
+│   ├── positions.json
+│   ├── runtime_state.json
+│   └── trades_YYYY-MM-DD.csv
 ```
 
-### Trade CSV Fields
+- `positions.json`: 봇이 관리하는 포지션만 저장
+- `runtime_state.json`: pending buy, buy cooldown 등 런타임 상태
+- `trades_*.csv`: 체결 로그
 
-`timestamp, date, action, symbol, price, quantity, amount, profit_pct, profit_krw`
+CSV 필드:
+`timestamp,date,action,symbol,price,quantity,amount,profit_pct,profit_krw`
 
----
+## 운영 안정성 포인트
 
-## Project Structure
+- 거래 API 호출 rate limit 분리 적용
+  - 주문: `8 req/s`
+  - 시세: `25 req/s`
+- API 실패 시 exponential backoff retry
+- 시그널 재계산 실패 시 fail-closed (새 거래일 stale signal 미사용)
+- `SIGINT`/`SIGTERM` 처리
+- 체결 수량 불명확 매수는 pending 상태로 저장 후 재복구
+- 매도 시 "지갑 전체"가 아니라 "봇 추적 수량"만 청산
 
-```
-crypto-bot/
-├── bot.py                  # Entry point (LOG_FORMAT 전환)
-├── bot/
-│   ├── bot.py              # VBOBot: 멀티 계좌 트레이딩 루프 + 일일 리포트 + heartbeat
-│   ├── config.py           # Config, RateLimiter, retry, JsonFormatter, .env 로더
-│   ├── market.py           # DailySignals: VBO 신호 계산
-│   ├── account.py          # Account: 주문 실행 (매수/매도)
-│   ├── tracker.py          # PositionTracker: positions.json 영속성
-│   ├── logger.py           # TradeLogger: 날짜별 CSV 로깅
-│   └── utils.py            # Telegram 알림 + 에러 스로틀
-├── tests/                  # 63 tests (unit + integration)
-├── scripts/
-│   └── liquidate.py        # 긴급 포지션 청산
-├── Dockerfile              # Multi-stage python:3.12-slim + HEALTHCHECK
-├── docker-compose.yml      # Volume mount + healthcheck + log rotation
-└── pyproject.toml          # 의존성 + ruff/mypy/pytest 설정
-```
-
----
-
-## Monitoring
+## 테스트 / 품질
 
 ```bash
-# Docker
-docker-compose logs -f
-docker-compose logs --tail=100
-
-# Systemd
-sudo systemctl status bot
-sudo journalctl -u bot -f
+pip install .[dev]
+pytest
+ruff check .
+mypy bot
 ```
 
-### Daily Report (9AM KST, Telegram)
+현재 코드베이스에서 `pytest --collect-only -q` 기준 126개 테스트가 수집됩니다.
 
-- 심볼별 목표가 vs 현재가
-- 계좌 포지션 + 미실현 손익 %
-- KRW 잔고 및 총 평가액
+## 긴급 청산 스크립트
 
----
+```bash
+# 시뮬레이션(기본)
+python scripts/liquidate.py
 
-## Disclaimer
+# 실제 시장가 청산
+python scripts/liquidate.py --execute
+```
 
-**투자 위험 경고**: 과거 수익률이 미래 수익을 보장하지 않습니다. 소액으로 먼저 테스트하세요. Upbit API 권한 필요: "자산 조회" + "주문하기". 모든 투자 판단과 손익은 본인 책임입니다.
+## 프로젝트 구조
+
+```text
+crypto-bot/
+├── bot.py
+├── bot/
+│   ├── account.py
+│   ├── bot.py
+│   ├── config.py
+│   ├── logger.py
+│   ├── market.py
+│   ├── tracker.py
+│   └── utils.py
+├── scripts/
+│   └── liquidate.py
+├── tests/
+│   ├── unit/
+│   └── integration/
+├── Dockerfile
+├── docker-compose.yml
+└── pyproject.toml
+```
+
+## 주의사항
+
+- 실거래 전 소액으로 충분히 검증하세요.
+- Upbit API 키에는 최소한 "자산 조회", "주문하기" 권한이 필요합니다.
+- 모든 투자 판단과 손익 책임은 사용자에게 있습니다.

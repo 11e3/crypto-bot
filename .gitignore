@@ -1,9 +1,8 @@
 venv/
-data/
+tests/
 __pycache__/
 *.pyc
 .env
-bot.log
 *.log
 .bot_positions_*.json
 trades_*.csv
@@ -11,11 +10,9 @@ trades_*.csv
 .mypy_cache
 .pytest_cache
 .ruff_cache
-.github
 .benchmarks
-.claude
-crypto_bot.egg-info
-tests/
+
 .claude
 .github
+crypto_bot.egg-info
 CLAUDE.md
