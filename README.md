@@ -6,6 +6,29 @@ Upbit KRW 마켓 실매매용 VBO(Volatility Breakout) 봇입니다.
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/badge/Docker-slim-blue.svg)](https://hub.docker.com/)
 
+## 실거래 수익률 트랙레코드
+
+Upbit 금액가중수익률 기준 실계좌 성과입니다.
+
+| 연도 | 기간 | 누적 수익률 | 누적 손익 | 평균 투자금 |
+|---|---|---|---|---|
+| 2024 | 01.01 ~ 12.31 | **+101.26%** | +17,217,701 KRW | 17,002,818 KRW |
+| 2025 | 01.01 ~ 12.31 | **+19.28%** | +6,732,533 KRW | 34,915,469 KRW |
+| 2026 | 01.01 ~ 02.28 | **+8.58%** | +1,250,766 KRW | 14,562,661 KRW |
+
+<table>
+<tr>
+<td align="center"><b>2024년</b></td>
+<td align="center"><b>2025년</b></td>
+<td align="center"><b>2026년 (1~2월)</b></td>
+</tr>
+<tr>
+<td><img src="images/2024.jpg" width="240"/></td>
+<td><img src="images/2025.jpg" width="240"/></td>
+<td><img src="images/2026.jpg" width="240"/></td>
+</tr>
+</table>
+
 ## 핵심 기능
 
 - Upbit KRW 페어 실매매 (`pyupbit`)
